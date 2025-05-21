@@ -1,4 +1,4 @@
-# AI-Powered Image File Naming System V1
+# AI-Powered Image File Naming System v1
 
 ## 1. Overview
 
