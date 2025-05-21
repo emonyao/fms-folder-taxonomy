@@ -5,7 +5,7 @@
 - This tool is designed to automatically rename image files stored on the company server based on a standardized naming format.
   - **What this tool does**:
      It scans folders containing product images with inconsistent or unclear filenames, and renames them following a standardized format:
-     `merchant_brand_productname_variation_v1.jpg`.
+     `merchant_brand_productname_variation.jpg`.
   - **Why we’re building it**:
      To improve naming consistency across the organization, making images easier to search, manage, and reuse—especially during cross-team collaboration.
   - **Who it’s for**:
@@ -16,7 +16,7 @@
 The goal of this project is to build an automated image renaming system that ensures all image files follow a consistent and readable format:
 
 ```
-merchant_brand_productname_variation_v1.jpg
+merchant_brand_productname_variation.jpg
 ```
 
 This format makes it easier to organize, search, and reference assets across teams.
@@ -44,7 +44,7 @@ This tool provides a semi-automated pipeline for organizing and renaming image f
 
 - **Standardized Filename Generator**
    Automatically renames images using the format:
-   `merchant_brand_productname_variation_v1.jpg`
+   `merchant_brand_productname_variation.jpg`
 - **Folder & Metadata Parsing**
    Extracts merchant and product info from folder structure and metadata, reducing reliance on manual input.
 - **Brand/Product Matching from Lookup Table**
@@ -138,7 +138,7 @@ Used to match `merchant → brand → product`.
 All successfully processed images will be:
 
 - Renamed to the standard format:
-   `merchant_brand_productname_variation_v1.jpg`
+   `merchant_brand_productname_variation.jpg`
 - (Optional) Copied to:
    `output/renamed/`
 
