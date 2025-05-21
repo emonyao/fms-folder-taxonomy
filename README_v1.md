@@ -6,6 +6,7 @@
   - **What this tool does**:
      It scans folders containing product images with inconsistent or unclear filenames, and renames them following a standardized format:
      `merchant_brand_productname_variation.jpg`.
+     All filenames include a version suffix like _v1.jpg, which is automatically incremented if the file already exists in the output directory (e.g. _v2.jpg, _v3.jpg...).
   - **Why we’re building it**:
      To improve naming consistency across the organization, making images easier to search, manage, and reuse—especially during cross-team collaboration.
   - **Who it’s for**:
@@ -53,6 +54,10 @@ This tool provides a semi-automated pipeline for organizing and renaming image f
    When brand or product name cannot be found, the system uses AI models (e.g. BLIP-2 or DeepSeek-VL) to suggest likely values.
 - **Uncertainty Handling & Labeling**
    If AI is used or key fields are missing, filenames are clearly marked (e.g. `_ai_` or `_unknown_`) to indicate confidence level.
+- **Versioning Logic**
+   Automatically detects existing files in the output folder and increments version number (e.g. `_v1`, `_v2`) instead of overwriting.
+- **Case & Character Sanitization**
+   Converts all names to lowercase, replaces spaces/punctuation with underscores `_`, and removes non-ASCII or special characters to ensure valid filenames.
 - **Rename Log Tracking**
    All renaming actions are logged in a `rename_log.csv` file with source attribution (e.g. Website, AI, Manual).
 - **Output Folder Management**
