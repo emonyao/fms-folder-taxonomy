@@ -204,39 +204,7 @@ The image renaming workflow follows a conditional pipeline based on image source
 
 ### Visual Flowchart
 
-```mermaid
-flowchart TD
-    A[Start - Scan image files from folder path] --> N{publish or not DNU}
-    N -- Yes --> B{Does image exist on website}
-    N -- No --> O[Copy to DNU folder]
-    
-    B -- Yes --> C[Extract merchant brand product]
-    C --> D[Generate standardized filename]
-    D --> E[Log to rename_log - Source Website]
-    
-    B -- No --> F{Exists only on server}
-    
-    F -- Yes --> G[Parse folder path / check lookup]
-    G --> X{Brand & Product missing?}
-    
-    X -- No --> H[Generate filename from folder info]
-    H --> I[Log to rename_log - Source Folder Info]
-    
-    X -- Yes --> J[Use AI to suggest brand/product]
-    J --> K{AI confident?}
-    
-    K -- Yes --> L[Generate AI-suggested filename]
-    L --> M[Log to rename_log - Source AI Match]
-    
-    K -- No --> Q[Mark as unknown]
-    Q --> R[Log to rename_log - Source Manual Check]
-    
-    E --> Z[Apply file renaming]
-    I --> Z
-    M --> Z
-    R --> Z
-    Z --> END[Done]
-```
+![Flowchart](./assets/flowchart.png)
 
 ## 8. AI Fallback Logic
 
