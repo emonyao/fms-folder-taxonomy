@@ -70,32 +70,49 @@ This tool provides a semi-automated pipeline for organizing and renaming image f
 The project is organized into the following folders:
 
 ```bash
-project-root/
-├── images/                  # Source images organized by merchant or brand
-│   ├── merchant1/
-│   │   ├── product_a/
-│   │   │   └── img001.jpg
-│   └── merchant2/
-│       └── img002.jpg
+fms-folder-taxonomy/
+├── images/                     # Original raw images (can be DSM-mounted or locally copied)
+│   ├── merchantA/
+│   └── merchantB/
+│       └── img001.jpg
 │
-├── data/                    # Metadata and lookup tables
-│   ├── image_metadata.csv   # Source: Infotech or internal product list
-│   └── product_lookup.csv   # Mapping of merchant → brand → product
+├── data/                       # Data tables and lookup mappings
+│   ├── image_metadata.csv      # Includes filename, published flag, merchant_id, etc.
+│   ├── product_lookup.csv      # Mapping of merchant_id → brand → product
+│   └── merchant_mapping.csv    # Mapping between merchant_id and merchant_name (if needed)
 │
-├── output/                  # Final renamed files and logs
-│   ├── renamed/             # Files with standardized names
-│   ├── dnu/                 # Unused or unpublished images
-│   └── rename_log.csv       # Log of all filename changes
+├── output/                     # Output directory for processed results
+│   ├── renamed/                # Images with standardized filenames
+│   ├── dnu/                    # Images marked as “Do Not Use”
+│   ├── review/                 # Images without metadata, pending manual check
+│   └── rename_log.csv          # Log of all filename changes
 │
-├── ai_models/               # Optional: local AI models or scripts
+├── scripts/                    # Core logic modules
+│   ├── main.py                 # Main entry point
+│   ├── scanner.py              # Scans image file paths
+│   ├── matcher.py              # Matches metadata and lookup tables
+│   ├── renamer.py              # Handles naming logic and file renaming
+│   ├── ai_fallback.py          # AI-based prediction logic (modular)
+│   ├── logger.py               # Writes entries to rename_log
+│   └── utils.py                # Utility functions (e.g., slugify, version control)
+│
+├── ai_models/                  # Local AI model scripts or inference logic
+│   ├── blip_infer.py
 │   └── deepseek_infer.py
 │
-├── scripts/                 # Core logic for renaming
-│   ├── rename_images.py
-│   └── ai_fallback.py
+├── tests/                      # Unit tests (recommended)
+│   ├── test_slugify.py
+│   ├── test_versioning.py
+│   └── test_matcher.py
 │
-├── README.md                # Project overview and usage guide
-└── requirements.txt         # Python dependencies
+├── assets/                     # Flowcharts, diagrams, README illustrations
+│   ├── flowchart.png
+│   └── draw.py
+│
+├── README.md                   # Final project documentation
+├── README_v1.md                # Draft or initial version of documentation
+├── requirements.txt            # pip dependency list
+└── config.yaml                 # Configuration file (paths, AI toggle, thresholds, etc.)
 ```
 
 ### Notes:
@@ -209,7 +226,7 @@ The image renaming workflow follows a conditional pipeline based on image source
 
 ### Visual Flowchart
 
-![Flowchart](./assets/flowchart.png)
+![Flowchart](./assets/flowchart_v2-1.png)
 
 ## 8. AI Fallback Logic
 
