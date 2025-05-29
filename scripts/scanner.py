@@ -41,5 +41,5 @@ if __name__ == "__main__":
 
     # write_image_list_csv(paths)  # call logger.py and write to csv
     # print("Image list saved to: output/image_list.csv")
-    scanner = ImageScanner()
+    scanner = ImageScanner() 
     scanner.export_image_list()
