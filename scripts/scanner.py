@@ -3,18 +3,21 @@
 import os
 from typing import List, Tuple
 from config import load_config
-from logger import write_image_list_csv
+from logger import RenameLogger
 
 class ImageScanner:
     def __init__(self, config_path: str = "config.yaml"):
         self.config = load_config(config_path)
         self.input_folder: str = self.config.get("input_folder", "images/")
-        self.extensions: Tuple[str] = (".jpg", ".jepg", ".png")
+        self.extensions: Tuple[str] = (".jpg", ".jpeg", ".png")
  
-    def scan_image_paths(root, extensions=(".jpg", ".jpeg", ".png")):
+    # def scan_image_paths(root, extensions=(".jpg", ".jpeg", ".png")):
+    def scan_image_paths(self) -> List[str]:
+
         """
         Recursively scan for image files in the given directory.
         """
+        
         image_paths = []
         for dirpath, _, filenames in os.walk(self.input_folder):
             for f in filenames:
@@ -28,7 +31,10 @@ class ImageScanner:
         """
         paths = self.scan_image_paths()
         print(f"Found {len(paths)} image(s) in {self.input_folder}")
-        write_image_list_csv(paths, output_path)
+        # write_image_list_csv(paths, output_path)
+        logger = RenameLogger()
+        logger.write_image_list(paths)
+
         print(f"Image list saved to: {output_path }")
 
 if __name__ == "__main__":
