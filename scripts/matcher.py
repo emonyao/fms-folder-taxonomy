@@ -9,7 +9,7 @@ class ImageMatcher:
     def __init__(self, metadata_path: str = "data/image_metadata.csv"):
         self.metadata_path = metadata_path
         self.meta_df = pd.read_csv(metadata_path)
-        self.image_columns = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIDATION IMAGE"]
+        self.image_columns = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
 
 
 # Columns that may contain image filenames
