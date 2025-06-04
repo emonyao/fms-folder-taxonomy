@@ -18,7 +18,7 @@ class ImageRenamer:
         os.makedirs(self.output_dir, exist_ok=True)
 
         self.logger = RenameLogger()
-        # self.scanner = ImageScanner(self.config)
+        # self.scanner = ImageScanner(self.config)1
         self.scanner = ImageScanner(config_path)
 
         self.matcher = ImageMatcher()
@@ -56,7 +56,18 @@ class ImageRenamer:
         for info in matched_info:
             old_path = info["original_path"]
             original_dir = os.path.dirname(old_path)
+            parent_folder = os.path.basename(os.path.dirname(old_path)).upper()
+            group_key = parent_folder if parent_folder in ["PO", "SB"] else ""
+            
+            variation_counters = {} 
 
+            count = variation_counters.get(group_key, 0) + 1
+            variation_counters[group_key] = count
+
+            if group_key in ["PO", "SB"]:
+                info["vatiation"] = f"_{group_key}_{count}"
+            else:
+                info["variation"] = str(count)
             new_name = self.construct_filename(info)
             new_name = self.resolve_conflict(original_dir, new_name)
             new_path = os.path.join(original_dir, new_name)

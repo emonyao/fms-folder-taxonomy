@@ -19,10 +19,19 @@ class ImageScanner:
         """
         
         image_paths = []
-        for dirpath, _, filenames in os.walk(self.input_folder):
-            for f in filenames:
-                if f.lower().endswith(self.extensions):
-                    image_paths.append(os.path.join(dirpath, f))
+        # for dirpath, _, filenames in os.walk(self.input_folder):
+        #     for f in filenames:
+        #         if f.lower().endswith(self.extensions):
+        #             image_paths.append(os.path.join(dirpath, f))
+        for dirpath, dirnames, filenames in os.walk(self.input_folder):
+            if os.path.basename(dirpath).lower() != "images for ops":
+                continue  # Skip folders that are not 'Images for Ops'
+
+            for root, _, files in os.walk(dirpath):  # scan within Images for Ops and its subdirs
+                for f in files:
+                    if f.lower().endswith(self.extensions):
+                        image_paths.append(os.path.join(root, f))
+        
         return image_paths
 
     def export_image_list(self, output_path: str = "output/image_list.csv"):
