@@ -1,6 +1,7 @@
 # scripts/matcher.py
 
 import os
+import csv
 import pandas as pd
 import re
 from typing import List, Dict, Optional
@@ -10,6 +11,13 @@ class ImageMatcher:
         self.metadata_path = metadata_path
         self.meta_df = pd.read_csv(metadata_path)
         self.image_columns = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
+
+        # 20250605 add output slugified name for testing
+        self.debug_log_path = "tests/match_debug_log.csv"
+        os.makedirs(os.path.dirname(self.debug_log_path),exist_ok=True)
+        with open(self.debug_log_path, "w", encoding="utf-8",newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Image Filename", "Slugified Image", "Slugified Metadata", "Matched", "Metadata Column"])
 
 
 # Columns that may contain image filenames
@@ -45,27 +53,30 @@ class ImageMatcher:
         """
         # filename_clean = filename.strip().lower()
         filename_clean = self.normalize_filename(filename)
+
+        matched = False
+
         print(f"\n🔍 Trying to match image: {filename_clean}")
 
         for col in self.image_columns:
             if col in self.meta_df.columns:
-                
-                # col_series = meta_df[col].astype(str).str.strip().str.lower()
                 col_series = self.meta_df[col].astype(str)
-                # col_series = meta_df[col].astype(str)
-                # print(f"📌 Checking column: {col}")
-                # print("    Top 5 values in this column:")
-                # print(col_series.head(5).to_list())  # 打印前 5 行，调试用
 
-        #         match = meta_df[meta_df[col] == filename]
-        #         if not match.empty:
-        #             print(f"✅ Match found in column: {col}")
-        #             return match.iloc[0]
-        # print("❌ No match found in any column.\n")
                 for i, cell in enumerate(col_series):
                     cell_clean = self.normalize_filename(cell)
+
+                    is_match = filename_clean == cell_clean
+                    matched = matched or is_match
+
+                    with open(self.debug_log_path, "a", encoding="utf-8",newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([
+                            filename, filename_clean, cell_clean,
+                            "Yes" if is_match else "No", col
+                        ])
+
                     print(f"Comparing image='{filename_clean}' vs metadata='{cell_clean}'")
-                    if filename_clean == cell_clean:
+                    if is_match:
                         print(f"✅ Match found in column '{col}': {cell}")
                         return self.meta_df.iloc[i]
         print("❌ No match found in any column.")

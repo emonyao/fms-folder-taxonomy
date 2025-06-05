@@ -1,6 +1,7 @@
 # scripts/renamer.py
 
 import os
+import csv
 import shutil
 from typing import Dict
 from config import load_config
