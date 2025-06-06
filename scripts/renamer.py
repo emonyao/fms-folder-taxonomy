@@ -28,11 +28,17 @@ class ImageRenamer:
     def slugify(self, text: str) -> str:
         return text.strip().lower().replace(" ", "_").replace("/", "_").replace("\\", "_")
 
+    def clean_text_keep_space(self, text: str) -> str:
+        """
+        Lowercase and remove slashes but keep internal spaces.
+        """
+        return text.strip().lower().replace("/", "_").replace("\\", "_")
+
     def construct_filename(self, info_dict: Dict, version: int = 1) -> str:
-        merchant = self.slugify(info_dict.get("merchant", "unknown"))
-        brand = self.slugify(info_dict.get("brand", "unknown"))
-        product = self.slugify(info_dict.get("product", "unknown"))
-        variation = self.slugify(info_dict.get("variation", "unknown"))
+        merchant = self.clean_text_keep_space(info_dict.get("merchant", "unknown"))
+        brand = self.clean_text_keep_space(info_dict.get("brand", "unknown"))
+        product = self.clean_text_keep_space(info_dict.get("product", "unknown"))
+        variation = self.clean_text_keep_space(info_dict.get("variation", "unknown"))
 
         base_name = f"{merchant}_{brand}_{product}_{variation}"
         if version > 1:
@@ -49,6 +55,7 @@ class ImageRenamer:
         return candidate
 
     def rename_images(self, dry_run: bool = False):
+        variation_counters = {} 
         image_paths = self.scanner.scan_image_paths()
         self.logger.write_image_list(image_paths)
 
@@ -57,18 +64,25 @@ class ImageRenamer:
         for info in matched_info:
             old_path = info["original_path"]
             original_dir = os.path.dirname(old_path)
-            parent_folder = os.path.basename(os.path.dirname(old_path)).upper()
+            parent_folder = os.path.basename(original_dir).upper()
+
             group_key = parent_folder if parent_folder in ["PO", "SB"] else ""
             
-            variation_counters = {} 
+            merchant = self.slugify(info.get("merchant", "unknown"))
+            brand = self.slugify(info.get("brand", "unknown"))
+            product = self.slugify(info.get("product", "unknown"))
+            
+            name_key = f"{merchant}_{brand}_{product}"
+            counter_key = (name_key, group_key)
 
-            count = variation_counters.get(group_key, 0) + 1
-            variation_counters[group_key] = count
+            count = variation_counters.get(counter_key, 0) + 1
+            variation_counters[counter_key] = count
 
             if group_key in ["PO", "SB"]:
-                info["vatiation"] = f"_{group_key}_{count}"
+                info["variation"] = f"_{group_key.lower()}_{count}"
             else:
                 info["variation"] = str(count)
+
             new_name = self.construct_filename(info)
             new_name = self.resolve_conflict(original_dir, new_name)
             new_path = os.path.join(original_dir, new_name)
