@@ -47,7 +47,7 @@ class RenameLogger:
         new_filename = os.path.basename(new_path)
         time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        row = [time_str, old_path, filename, new_path, new_filename, status, source]
+        row = [time_str, old_path, filename, new_filename, status, source]
 
         # Append to main log
         os.makedirs(os.path.dirname(self.main_log_path), exist_ok=True)
@@ -55,7 +55,7 @@ class RenameLogger:
             writer = csv.writer(f_main)
             if not self.header_written["main"]:
                 writer.writerow(["Time", "Original Path", "Original Filename",
-                                 "New Path", "New Filename", "Status", "Source"])
+                                  "New Filename", "Status", "Source"])
                 self.header_written["main"] = True
             writer.writerow(row)
 
@@ -64,6 +64,6 @@ class RenameLogger:
             writer = csv.writer(f_backup)
             if not self.header_written["backup"]:
                 writer.writerow(["Time", "Original Path", "Original Filename",
-                                 "New Path", "New Filename", "Status", "Source"])
+                                  "New Filename", "Status", "Source"])
                 self.header_written["backup"] = True
             writer.writerow(row)

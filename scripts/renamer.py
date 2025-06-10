@@ -2,6 +2,7 @@
 
 import os
 import csv
+import re
 import shutil
 from typing import Dict
 from config import load_config
