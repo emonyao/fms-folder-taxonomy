@@ -25,14 +25,19 @@ class ImageRenamer:
 
         self.matcher = ImageMatcher()
 
+        
+
+
 
     def slugify(self, text: str) -> str:
+        text = str(text)
         return text.strip().lower().replace(" ", "_").replace("/", "_").replace("\\", "_")
 
     def clean_text_keep_space(self, text: str) -> str:
         """
         Lowercase and remove slashes but keep internal spaces.
         """
+        text = str(text)
         return text.strip().lower().replace("/", "_").replace("\\", "_")
 
     def construct_filename(self, info_dict: Dict, version: int = 1) -> str:
@@ -83,6 +88,12 @@ class ImageRenamer:
                 info["variation"] = f"_{group_key.lower()}_{count}"
             else:
                 info["variation"] = str(count)
+
+            if info["match_source"] == "NotFound":
+                # 使用原始文件名（去扩展名）
+                original_base = os.path.splitext(info["filename"])[0]
+                info["product"] = original_base  # 将原始名字作为 product，用于保留原始文件名
+
 
             new_name = self.construct_filename(info)
             new_name = self.resolve_conflict(original_dir, new_name)

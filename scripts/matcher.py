@@ -4,6 +4,7 @@ import os
 import csv
 import pandas as pd
 import re
+from datetime import datetime
 from typing import List, Dict, Optional
 from utils import extract_color_phrase
 
@@ -23,12 +24,26 @@ class ImageMatcher:
             self.brand_lookup[brand] = merchant
 
         # 20250605 add output slugified name for testing
-        self.debug_log_path = "tests/match_debug_log.csv"
-        os.makedirs(os.path.dirname(self.debug_log_path),exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") 
+        base_dir = os.path.abspath(os.path.dirname(__file__))
+        debug_dir = os.path.join(base_dir, "..", "tests")
+        os.makedirs(debug_dir, exist_ok=True)
+        self.debug_log_path = os.path.join(debug_dir, f"match_debug_log_{timestamp}.csv")
+
+        # self.debug_log_path = "tests/match_debug_log.csv"
+        # os.makedirs(os.path.dirname(self.debug_log_path),exist_ok=True)
         with open(self.debug_log_path, "w", encoding="utf-8",newline='') as f:
             writer = csv.writer(f)
             writer.writerow(["Image Filename", "Slugified Image", "Slugified Metadata", "Matched", "Metadata Column"])
 
+        # 在 __init__ 中添加
+        self.merchant_name_to_id = {}
+        if "MERCHANT" in self.meta_df.columns and "MERCHANT ID" in self.meta_df.columns:
+            for _, row in self.meta_df.iterrows():
+                name = row["MERCHANT"].strip()
+                mid = row["MERCHANT ID"]
+                if name and mid:
+                    self.merchant_name_to_id[name] = mid
 
 # Columns that may contain image filenames
 # IMAGE_COLUMNS = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
@@ -130,7 +145,7 @@ class ImageMatcher:
 
             for _, row in self.brand_df.iterrows():
                 brand = row["BRAND"].strip().lower()
-                mrechant = row["MERCHANT"].strip()
+                merchant = row["MERCHANT"].strip()
                 product = row.get("PRODUCT NAME","").strip().lower()
 
                 if brand in filename_clean:
@@ -174,6 +189,13 @@ class ImageMatcher:
         if not result["variation"]:
             result["variation"] = extract_color_phrase(filename) or ""
 
+        # ✅ 替换 merchant name 为 merchant ID（仅限找到对应 ID 的情况）
+        original_merchant = result["merchant"]
+        if original_merchant in self.merchant_name_to_id:
+            result["merchant"] = self.merchant_name_to_id[original_merchant]
+            print(f"🔄 Replaced merchant name '{original_merchant}' with ID '{result['merchant']}'")
+        else:
+            print(f"⚠️ No MERCHANT ID found for '{original_merchant}', keeping original name.")
 
         print(f"DEBUG: Matching {filename}...")
         return result
