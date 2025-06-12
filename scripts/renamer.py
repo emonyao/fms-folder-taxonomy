@@ -90,9 +90,9 @@ class ImageRenamer:
                 info["variation"] = str(count)
 
             if info["match_source"] == "NotFound":
-                # 使用原始文件名（去扩展名）
+                # keep original filename
                 original_base = os.path.splitext(info["filename"])[0]
-                info["product"] = original_base  # 将原始名字作为 product，用于保留原始文件名
+                info["product"] = original_base  # keep original filename as product name
 
 
             new_name = self.construct_filename(info)
