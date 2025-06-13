@@ -1,2 +1,4 @@
 # Ignore the images folder
 images/
+tests/
+output/
