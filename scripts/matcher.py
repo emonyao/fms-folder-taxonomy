@@ -11,17 +11,31 @@ from utils import extract_color_phrase
 class ImageMatcher:
     def __init__(self, metadata_path: str = "data/image_metadata.csv"):
         self.metadata_path = metadata_path
-        self.meta_df = pd.read_csv(metadata_path)
-        self.image_columns = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
+        # 20250616 update: csv -> json
+        # self.meta_df = pd.read_csv(metadata_path)
+        # self.image_columns = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            self.meta_list = json.load(f)  # List[Dict]
+        
+        self.image_columns = ["variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
+
+        self.merchant_name_to_id = {}
+        for item in self.meta_list:
+            merchant = item.get("merchant", {})
+            if isinstance(merchant, dict):
+                name = merchant.get("name", "").strip()
+                mid = merchant.get("id", "").strip()
+                if name and mid:
+                    self.merchant_name_to_id[name] = mid
 
         # 20250606 add 
-        self.brand_lookup = {} # brand -> merchant
-        self.brand_df = pd.read_csv("data/merchant_brand_list.csv")
-        df = pd.read_csv("data/merchant_brand_list.csv")
-        for _, row in df.iterrows():
-            brand = row["BRAND"].strip().lower()
-            merchant = row["MERCHANT"].strip()
-            self.brand_lookup[brand] = merchant
+        # self.brand_lookup = {} # brand -> merchant
+        # self.brand_df = pd.read_csv("data/merchant_brand_list.csv")
+        # df = pd.read_csv("data/merchant_brand_list.csv")
+        # for _, row in df.iterrows():
+        #     brand = row["BRAND"].strip().lower()
+        #     merchant = row["MERCHANT"].strip()
+        #     self.brand_lookup[brand] = merchant
 
         # 20250605 add output slugified name for testing
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") 
@@ -37,7 +51,7 @@ class ImageMatcher:
             writer.writerow(["Image Filename", "Slugified Image", "Slugified Metadata", "Matched", "Metadata Column"])
 
         # 在 __init__ 中添加
-        self.merchant_name_to_id = {}
+        # self.merchant_name_to_id = {}
         if "MERCHANT" in self.meta_df.columns and "MERCHANT ID" in self.meta_df.columns:
             for _, row in self.meta_df.iterrows():
                 name = row["MERCHANT"].strip()
@@ -69,7 +83,7 @@ class ImageMatcher:
         return name
 
 
-    def find_row_by_filename(self, filename: str) -> Optional[pd.Series]:
+    def find_row_by_filename(self, filename: str) -> Optional[Dict]:
         """
         Try to find a row where the filename appears in any IMAGE column.
 
@@ -83,28 +97,42 @@ class ImageMatcher:
 
         print(f"\n🔍 Trying to match image: {filename_clean}")
 
-        for col in self.image_columns:
-            if col in self.meta_df.columns:
-                col_series = self.meta_df[col].astype(str)
+        # 20250616 update
+        # for col in self.image_columns:
+        #     if col in self.meta_df.columns:
+        #         col_series = self.meta_df[col].astype(str)
 
-                for i, cell in enumerate(col_series):
-                    cell_clean = self.normalize_filename(cell)
+        #         for i, cell in enumerate(col_series):
+        #             cell_clean = self.normalize_filename(cell)
 
-                    is_match = filename_clean == cell_clean
+        #             is_match = filename_clean == cell_clean
+        #             matched = matched or is_match
+        for item in self.meta_list:
+            for col in self.image_columns:
+                images = item.get(col)
+                if not images:
+                    continue
+                # 兼容 "variation_image": str 和 "images": List[str]
+                if isinstance(images, str):
+                    images = [images]
+                for img in images:
+                    img_clean = self.normalize_filename(str(img))
+                    is_match = filename_clean == img_clean
                     matched = matched or is_match
+
 
                     with open(self.debug_log_path, "a", encoding="utf-8",newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow([
-                            filename, filename_clean, cell_clean,
+                            filename, filename_clean, img_clean,
                             "Yes" if is_match else "No", col
                         ])
 
-                    print(f"Comparing image='{filename_clean}' vs metadata='{cell_clean}'")
+                    print(f"Comparing image='{filename_clean}' vs metadata='{img_clean}'")
                     if is_match:
-                        print(f"✅ Match found in column '{col}': {cell}")
-                        return self.meta_df.iloc[i]
-        print("❌ No match found in any column.")
+                        print(f"✅ Match found in column '{col}': {img}")
+                        return item
+        print("❌ No match found in metadata.")
         return None
 
 
@@ -128,11 +156,18 @@ class ImageMatcher:
 
         row = self.find_row_by_filename(filename)
         if row is not None:
-            result["merchant"] = row.get("MERCHANT", "")
-            result["brand"] = row.get("BRAND", "")
-            result["product"] = row.get("PRODUCT NAME", "")
-            result["variation"] = row.get("PROD VARIATION NAME", "")
+            # 20250616 update
+            # result["merchant"] = row.get("MERCHANT", "")
+            # result["brand"] = row.get("BRAND", "")
+            # result["product"] = row.get("PRODUCT NAME", "")
+            # result["variation"] = row.get("PROD VARIATION NAME", "")
+            # result["match_source"] = "Metadata"
+            result["merchant"] = row.get("merchant", {}).get("name", "")
+            result["brand"] = row.get("brand", "")
+            result["product"] = row.get("product_name", "")
+            result["variation"] = row.get("product_variation_name", "")
             result["match_source"] = "Metadata"
+
         else:
             print(f"⚠️ No match found for {filename} in metadata")
 
@@ -143,24 +178,25 @@ class ImageMatcher:
             best_match_row = None
             best_score = 0
 
-            for _, row in self.brand_df.iterrows():
-                brand = row["BRAND"].strip().lower()
-                merchant = row["MERCHANT"].strip()
-                product = row.get("PRODUCT NAME","").strip().lower()
+            # 20250616 delete
+            # for _, row in self.brand_df.iterrows():
+            #     brand = row["BRAND"].strip().lower()
+            #     merchant = row["MERCHANT"].strip()
+            #     product = row.get("PRODUCT NAME","").strip().lower()
 
-                if brand in filename_clean:
-                    score = 0
-                    base_words = base_name.split()
-                    product_words = product.split()
-                    for i in range(min(len(base_words), len(product_words))):
-                        if base_words[i] == product_words[i]:
-                            score += 1
-                        else:
-                            break
+            #     if brand in filename_clean:
+            #         score = 0
+            #         base_words = base_name.split()
+            #         product_words = product.split()
+            #         for i in range(min(len(base_words), len(product_words))):
+            #             if base_words[i] == product_words[i]:
+            #                 score += 1
+            #             else:
+            #                 break
                     
-                    if score > best_score:
-                        best_score = score
-                        best_match_row = row
+            #         if score > best_score:
+            #             best_score = score
+            #             best_match_row = row
             
             if best_match_row is not None:
                 result["brand"] = best_match_row["BRAND"]

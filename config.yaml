@@ -2,7 +2,8 @@
 
 # Input
 input_folder: images/                     # 原始图像目录
-metadata_file: data/image_metadata.csv   # 元数据表
+# metadata_file: data/image_metadata.csv   # 元数据表
+metadata_file: data/metadata.json
 # product_lookup_file: data/product_lookup.csv  # 品牌和产品名映射（可选）
 # merchant_mapping_file: data/merchant_mapping.csv  # 商户 ID ↔ 名称映射（可选）
 

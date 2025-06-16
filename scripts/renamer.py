@@ -108,7 +108,7 @@ class ImageRenamer:
 
                 self.logger.log_rename(old_path, new_path, status="Renamed" if not dry_run else "DryRun", source=info["match_source"])
             except Exception as e:
-                log_rename(old_path, "", status="Failed", source=str(e))
+                self.logger.log_rename(old_path, "", status="Failed", source=str(e))
                 print(f" Rename failed: {old_path} — {e}")
 
 if __name__ == "__main__":

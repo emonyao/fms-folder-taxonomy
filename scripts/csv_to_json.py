@@ -8,7 +8,12 @@ df = df.where(pd.notnull(df), None)
 
 json_data = []
 
+
+
 for _, row in df.iterrows():
+    merchant_id = row.get("merchant_id")
+    merchant_name = row.get("merchant_name")
+    
     item = {
         "variation_id": row["variation_id"],
         "state": row["state"],
@@ -22,8 +27,11 @@ for _, row in df.iterrows():
             row.get("image4")
         ],
         "merchant": {
-            "id": str(row["merchant_id"]),
-            "name": row["merchant_name"]
+            # "id": str(row["merchant_id"]),
+            # "name": row["merchant_name"]
+            "id": str(merchant_id).strip() if merchant_id is not None else "",
+            "name": str(merchant_name).strip() if merchant_name is not None else ""
+
         },
         "brand": row["brand_name"]
     }
