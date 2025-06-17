@@ -4,18 +4,25 @@ import os
 import csv
 import pandas as pd
 import re
+import json
 from datetime import datetime
 from typing import List, Dict, Optional
 from utils import extract_color_phrase
 
 class ImageMatcher:
-    def __init__(self, metadata_path: str = "data/image_metadata.csv"):
+    def __init__(self, metadata_path: str = "data/metadata.json"):
         self.metadata_path = metadata_path
         # 20250616 update: csv -> json
         # self.meta_df = pd.read_csv(metadata_path)
         # self.image_columns = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
-        with open(metadata_path, "r", encoding="utf-8") as f:
-            self.meta_list = json.load(f)  # List[Dict]
+        # with open(metadata_path, "r", encoding="utf-8") as f:
+        #     self.meta_list = json.load(f)  # List[Dict]
+        with open(metadata_path, "r", encoding="utf-8-sig") as f:
+            print(f"✅ Reading file: {metadata_path}")
+            content = f.read()
+            print("🔍 Content starts with:", content[:50])  # debug 输出前50个字符
+            self.meta_list = json.loads(content)
+
         
         self.image_columns = ["variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
 
@@ -52,12 +59,12 @@ class ImageMatcher:
 
         # 在 __init__ 中添加
         # self.merchant_name_to_id = {}
-        if "MERCHANT" in self.meta_df.columns and "MERCHANT ID" in self.meta_df.columns:
-            for _, row in self.meta_df.iterrows():
-                name = row["MERCHANT"].strip()
-                mid = row["MERCHANT ID"]
-                if name and mid:
-                    self.merchant_name_to_id[name] = mid
+        # if "MERCHANT" in self.meta_df.columns and "MERCHANT ID" in self.meta_df.columns:
+        #     for _, row in self.meta_df.iterrows():
+        #         name = row["MERCHANT"].strip()
+        #         mid = row["MERCHANT ID"]
+        #         if name and mid:
+        #             self.merchant_name_to_id[name] = mid
 
 # Columns that may contain image filenames
 # IMAGE_COLUMNS = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]

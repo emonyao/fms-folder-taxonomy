@@ -17,14 +17,22 @@ for _, row in df.iterrows():
     item = {
         "variation_id": row["variation_id"],
         "state": row["state"],
-        "product_name": row["product_name"],
-        "product_variation_name": row["product_variation_name"],
-        "variation_image": row["variation_image"],
+        # "product_name": row["product_name"].strip(),
+        "product_name": str(row.get("product_name") or "").strip(),
+        # "product_variation_name": row["product_variation_name"].strip(),
+        "product_variation_name": str(row.get("product_variation_name") or "").strip(),
+        # "variation_image": row["variation_image"].strip(),
+        "variation_image": str(row.get("variation_image") or "").strip(),
+
         "images": [
-            row.get("image1"),
-            row.get("image2"),
-            row.get("image3"),
-            row.get("image4")
+            # row.get("image1").strip(),
+            # row.get("image2").strip(),
+            # row.get("image3").strip(),
+            # row.get("image4").strip()
+            str(row.get("image1") or "").strip(),
+            str(row.get("image2") or "").strip(),
+            str(row.get("image3") or "").strip(),
+            str(row.get("image4") or "").strip()
         ],
         "merchant": {
             # "id": str(row["merchant_id"]),
