@@ -21,10 +21,24 @@ class ImageMatcher:
             print(f"✅ Reading file: {metadata_path}")
             content = f.read()
             print("🔍 Content starts with:", content[:50])  # debug 输出前50个字符
+            
+            
             self.meta_list = json.loads(content)
+            self.image_columns = ["variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
 
-        
-        self.image_columns = ["variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
+            # 20250618 add: change list to dict
+            self.filename_to_meta = {}
+            for item in self.meta_list:
+                for col in self.image_columns:
+                    images = item.get(col)
+                    if isinstance(images, str):
+                        self.filename_to_meta[images.strip().lower()] = item
+                    elif isinstance(images, list):
+                        for img in images:
+                            # self.filename_to_meta[str(img).strip().lower()] = item
+                            normalized_key = self.normalize_filename(img)
+                            self.filename_to_meta[normalized_key] = item
+
 
         self.merchant_name_to_id = {}
         for item in self.meta_list:
@@ -90,57 +104,79 @@ class ImageMatcher:
         return name
 
 
+    # 20250618 change list to dict
+    # def find_row_by_filename(self, filename: str) -> Optional[Dict]:
+    #     """
+    #     Try to find a row where the filename appears in any IMAGE column.
+
+    #     Returns:
+    #         row (pd.Series) if match found, else None
+    #     """
+    #     # filename_clean = filename.strip().lower()
+    #     filename_clean = self.normalize_filename(filename)
+
+    #     matched = False
+
+    #     print(f"\n🔍 Trying to match image: {filename_clean}")
+
+    #     # 20250616 update
+    #     # for col in self.image_columns:
+    #     #     if col in self.meta_df.columns:
+    #     #         col_series = self.meta_df[col].astype(str)
+
+    #     #         for i, cell in enumerate(col_series):
+    #     #             cell_clean = self.normalize_filename(cell)
+
+    #     #             is_match = filename_clean == cell_clean
+    #     #             matched = matched or is_match
+    #     for item in self.meta_list:
+    #         for col in self.image_columns:
+    #             images = item.get(col)
+    #             if not images:
+    #                 continue
+    #             # 兼容 "variation_image": str 和 "images": List[str]
+    #             if isinstance(images, str):
+    #                 images = [images]
+    #             for img in images:
+    #                 img_clean = self.normalize_filename(str(img))
+    #                 is_match = filename_clean == img_clean
+    #                 matched = matched or is_match
+
+
+    #                 with open(self.debug_log_path, "a", encoding="utf-8",newline='') as f:
+    #                     writer = csv.writer(f)
+    #                     writer.writerow([
+    #                         filename, filename_clean, img_clean,
+    #                         "Yes" if is_match else "No", col
+    #                     ])
+
+    #                 print(f"Comparing image='{filename_clean}' vs metadata='{img_clean}'")
+    #                 if is_match:
+    #                     print(f"✅ Match found in column '{col}': {img}")
+    #                     return item
+    #     print("❌ No match found in metadata.")
+    #     return None
     def find_row_by_filename(self, filename: str) -> Optional[Dict]:
-        """
-        Try to find a row where the filename appears in any IMAGE column.
+        normalized = self.normalize_filename(filename)
+        result = self.filename_to_meta.get(normalized)
 
-        Returns:
-            row (pd.Series) if match found, else None
-        """
-        # filename_clean = filename.strip().lower()
-        filename_clean = self.normalize_filename(filename)
+        with open(self.debug_log_path, "a", encoding="utf-8", newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                filename,                 # 原始文件名
+                normalized,              # 标准化后的文件名
+                "✓" if result else "",   # 如果匹配到了，用 ✓ 表示
+                "Yes" if result else "No",
+                "DirectDictLookup"
+            ])
 
-        matched = False
-
-        print(f"\n🔍 Trying to match image: {filename_clean}")
-
-        # 20250616 update
-        # for col in self.image_columns:
-        #     if col in self.meta_df.columns:
-        #         col_series = self.meta_df[col].astype(str)
-
-        #         for i, cell in enumerate(col_series):
-        #             cell_clean = self.normalize_filename(cell)
-
-        #             is_match = filename_clean == cell_clean
-        #             matched = matched or is_match
-        for item in self.meta_list:
-            for col in self.image_columns:
-                images = item.get(col)
-                if not images:
-                    continue
-                # 兼容 "variation_image": str 和 "images": List[str]
-                if isinstance(images, str):
-                    images = [images]
-                for img in images:
-                    img_clean = self.normalize_filename(str(img))
-                    is_match = filename_clean == img_clean
-                    matched = matched or is_match
+        if result:
+            print(f"✅ Fast match found for {filename}")
+        else:
+            print(f"❌ No fast match found for {filename}")
+        return result
 
 
-                    with open(self.debug_log_path, "a", encoding="utf-8",newline='') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([
-                            filename, filename_clean, img_clean,
-                            "Yes" if is_match else "No", col
-                        ])
-
-                    print(f"Comparing image='{filename_clean}' vs metadata='{img_clean}'")
-                    if is_match:
-                        print(f"✅ Match found in column '{col}': {img}")
-                        return item
-        print("❌ No match found in metadata.")
-        return None
 
 
     def match_image(self, image_path: str) -> Dict[str, str]:
