@@ -20,11 +20,11 @@ class ImageMatcher:
         with open(metadata_path, "r", encoding="utf-8-sig") as f:
             print(f"✅ Reading file: {metadata_path}")
             content = f.read()
-            print("🔍 Content starts with:", content[:50])  # debug 输出前50个字符
+            # print("🔍 Content starts with:", content[:50])  # debug output first 50 characters
             
             
             self.meta_list = json.loads(content)
-            self.image_columns = ["variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
+            self.image_columns = ["product_name", "product_variation_name", "variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
 
             # 20250618 add: change list to dict
             self.filename_to_meta = {}
@@ -32,7 +32,10 @@ class ImageMatcher:
                 for col in self.image_columns:
                     images = item.get(col)
                     if isinstance(images, str):
-                        self.filename_to_meta[images.strip().lower()] = item
+                        # 20250619 change
+                        # self.filename_to_meta[images.strip().lower()] = item
+                        normalized_key = self.normalize_filename(images)
+                        self.filename_to_meta[normalized_key] = item
                     elif isinstance(images, list):
                         for img in images:
                             # self.filename_to_meta[str(img).strip().lower()] = item
@@ -57,6 +60,27 @@ class ImageMatcher:
         #     brand = row["BRAND"].strip().lower()
         #     merchant = row["MERCHANT"].strip()
         #     self.brand_lookup[brand] = merchant
+
+        # 20250619 add brand -> merchant -> product, *-*
+        self.brand_merchant_product_map = {}
+        for item in self.meta_list:
+            # brand = item.get("brand","").strip().lower()
+            # merichant = item.get("merchant",{}).get("name","").strip()
+            # product = item.get("variation_image","").strip().lower()
+            raw_brand = item.get("brand", "")
+            raw_merchant = item.get("merchant", {}).get("name", "")
+            raw_product = item.get("product_name", "")
+
+            brand = raw_brand.strip().lower() if isinstance(raw_brand, str) else ""
+            merchant = raw_merchant.strip() if isinstance(raw_merchant, str) else ""
+            product = raw_product.strip().lower() if isinstance(raw_product, str) else ""
+
+            if brand and merchant and product:
+                self.brand_merchant_product_map.setdefault(brand, []).append({
+                    "merchant": merchant,
+                    "product": product,
+                    "row": item
+                })
 
         # 20250605 add output slugified name for testing
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") 
@@ -159,22 +183,51 @@ class ImageMatcher:
     def find_row_by_filename(self, filename: str) -> Optional[Dict]:
         normalized = self.normalize_filename(filename)
         result = self.filename_to_meta.get(normalized)
+        matched_row = None
+        matched_slug = ""
+        matched_column = ""
+
+        # 20250619 add and change
+        # for key, row in self.filename_to_meta.items():
+        #     if normalized == key:
+        #         # matched = True
+        #         matched_slug = key
+        #         break
+        # 遍历 meta_list 而不是 filename_to_meta，这样才能记录字段来源
+        for item in self.meta_list:
+            for col in self.image_columns:
+                values = item.get(col)
+                if not values:
+                    continue
+                if isinstance(values, str):
+                    values = [values]
+                for val in values:
+                    if self.normalize_filename(val) == normalized:
+                        matched_row = item
+                        matched_slug = self.normalize_filename(val)
+                        matched_column = col
+                        break
+                if matched_row:
+                    break
+            if matched_row:
+                break
 
         with open(self.debug_log_path, "a", encoding="utf-8", newline='') as f:
             writer = csv.writer(f)
             writer.writerow([
                 filename,                 # 原始文件名
                 normalized,              # 标准化后的文件名
-                "✓" if result else "",   # 如果匹配到了，用 ✓ 表示
+                # "Matched" if result else "Unmatched",   # 如果匹配到了，用 ✓ 表示
+                matched_slug or "Unmatched",    # Slugified Metadata
                 "Yes" if result else "No",
-                "DirectDictLookup"
+                matched_column or "None"      # 匹配来源字段名
             ])
 
-        if result:
+        if matched_row:
             print(f"✅ Fast match found for {filename}")
         else:
             print(f"❌ No fast match found for {filename}")
-        return result
+        return matched_row
 
 
 
@@ -207,9 +260,39 @@ class ImageMatcher:
             # result["match_source"] = "Metadata"
             result["merchant"] = row.get("merchant", {}).get("name", "")
             result["brand"] = row.get("brand", "")
-            result["product"] = row.get("product_name", "")
-            result["variation"] = row.get("product_variation_name", "")
-            result["match_source"] = "Metadata"
+            # result["product"] = row.get("variation_image", "")
+            # 20250619 change: get variation from the filename itself 
+            # result["variation"] = row.get("product_variation_name", "")
+            # 提取颜色或材质
+            color_or_material = extract_color_phrase(filename)
+
+            # 暂时不加编号，也不加 po/sb，这部分后续由 rename_images 控制更清晰
+            # result["variation"] = color_or_material if color_or_material else ""
+            # 先尝试从 filename 中提取颜色或材质（如 grey, black, khaki 等）
+            color_or_material = extract_color_phrase(filename)
+
+            # 初始化 variation 为空
+            variation_parts = []
+
+            # 加入颜色词（如果有）
+            if color_or_material:
+                variation_parts.append(color_or_material)
+
+            # 加入编号（在 rename_images 中根据计数器动态生成，1 不显示，2 开始才显示）
+            # 例如这里不加，留给后续 rename_images 方法处理
+
+            # 加入分组信息（PO 或 SB），也留给 rename_images 添加 `_po`, `_sb`
+
+            # 把拼接好的 variation_parts 合并为字符串
+            result["variation"] = "_".join(variation_parts)
+            # result["match_source"] = "Metadata"
+            # 如果是 bundle 图，不使用 metadata 中的 product name，保留原始文件名
+            if "bundle" in filename.lower():
+                result["product"] = os.path.splitext(filename)[0]
+                result["match_source"] = "BundleFilename"
+            else:
+                result["product"] = row.get("product_name", "")
+                result["match_source"] = "Metadata"
 
         else:
             print(f"⚠️ No match found for {filename} in metadata")
@@ -218,8 +301,20 @@ class ImageMatcher:
             filename_clean = filename.lower()
             base_name = os.path.splitext(filename)[0].lower()
 
-            best_match_row = None
-            best_score = 0
+            # 20250620: 如果包含 "bundle"，直接根据 brand 获取 merchant
+            if "bundle" in filename_clean:
+                for brand, entries in self.brand_merchant_product_map.items():
+                    if brand in filename_clean:
+                        result["brand"] = brand
+                        result["merchant"] = entries[0]["merchant"]  # 取第一个 merchant，默认用第一个
+                        result["product"] = base_name
+                        result["match_source"] = "BundleByBrand"
+                        print(f"Bundle match: brand={result['brand']} -> merchant={result['merchant']}")
+                        break
+
+            else:
+                best_match_row = None
+                best_score = 0
 
             # 20250616 delete
             # for _, row in self.brand_df.iterrows():
@@ -241,16 +336,37 @@ class ImageMatcher:
             #             best_score = score
             #             best_match_row = row
             
-            if best_match_row is not None:
-                result["brand"] = best_match_row["BRAND"]
-                result["merchant"] = best_match_row["MERCHANT"]
-                # result["product"] = best_match_row.get("PRODUCT NAME","")
-                result["product"] = os.path.splitext(filename)[0]
-                result["match_source"] = "BrandFallback+Product"
+            # 20250619 add get merchant from merchant -> brand -> product
+                for brand, entries in self.brand_merchant_product_map.items():
+                    if brand in filename_clean:
+                        for entry in entries:
+                            product_name = entry["product"]
+                            product_words = product_name.lower().split()
+                            filename_words = base_name.split()
 
-                print(f"✅ Best fallback match: brand={result['brand']}, product={result['product']}, merchant={result['merchant']}")
-            else:
-                print("❌ No suitable fallback row found.")
+                            # fuzzy match by leading word overlap
+                            score = 0
+                            for i in range(min(len(product_words), len(filename_words))):
+                                if product_words[i] == filename_words[i]:
+                                    score += 1
+                                else:
+                                    break
+                            if score > best_score:
+                                best_score = score
+                                best_match_row = entry
+
+            # 20250619 update
+                if best_match_row is not None:
+                    row = best_match_row["row"]
+                    result["brand"] = best_match_row["row"]["brand"]
+                    result["merchant"] = best_match_row["merchant"]
+                    # result["product"] = best_match_row.get("PRODUCT NAME","")
+                    result["product"] = base_name
+                    result["match_source"] = "BrandFallback+Product"
+
+                    print(f"✅ Best fallback match: brand={result['brand']}, product={result['product']}, merchant={result['merchant']}")
+                else:
+                    print("❌ No suitable fallback row found.")
 
             # for brand in self.brand_lookup:
             #     pattern = rf'\b{re.escape(brand)}\b'

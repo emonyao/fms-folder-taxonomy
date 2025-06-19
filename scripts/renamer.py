@@ -9,6 +9,7 @@ from config import load_config
 from logger import RenameLogger
 from matcher import ImageMatcher
 from scanner import ImageScanner
+from utils import extract_color_phrase
 
 
 
@@ -20,7 +21,7 @@ class ImageRenamer:
         os.makedirs(self.output_dir, exist_ok=True)
 
         self.logger = RenameLogger()
-        # self.scanner = ImageScanner(self.config)1
+        # self.scanner = ImageScanner(self.config)
         self.scanner = ImageScanner(config_path)
 
         self.matcher = ImageMatcher()
@@ -84,10 +85,27 @@ class ImageRenamer:
             count = variation_counters.get(counter_key, 0) + 1
             variation_counters[counter_key] = count
 
+            # 20250619 change variation logic
+            # if group_key in ["PO", "SB"]:
+            #     info["variation"] = f"_{group_key.lower()}_{count}"
+            # else:
+            #     info["variation"] = str(count)
+            variation_parts = []
+            
+            # 颜色提取，防止重复加入
+            color_or_material = extract_color_phrase(info["filename"])
+            product_text = info.get("product", "").lower()
+
+            # 颜色只在 product 中不存在时加入
+            if color_or_material and color_or_material not in product_text:
+                variation_parts.append(color_or_material)
+
+            if count > 1:
+                variation_parts.append(str(count))
             if group_key in ["PO", "SB"]:
-                info["variation"] = f"_{group_key.lower()}_{count}"
-            else:
-                info["variation"] = str(count)
+                variation_parts.append(group_key.lower())
+                
+            info["variation"] = "_".join(variation_parts)
 
             if info["match_source"] == "NotFound":
                 # keep original filename
