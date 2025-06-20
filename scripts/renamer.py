@@ -124,9 +124,9 @@ class ImageRenamer:
                     os.rename(old_path, new_path)
                     print(f" Renamed: {old_path} → {new_path}")
 
-                self.logger.log_rename(old_path, new_path, status="Renamed" if not dry_run else "DryRun", source=info["match_source"])
+                self.logger.log_rename(old_path, new_path, status="Renamed" if not dry_run else "DryRun", source=info["match_source"], confidence=info.get("confidence_score", ""), level=info.get("confidence_level", ""))
             except Exception as e:
-                self.logger.log_rename(old_path, "", status="Failed", source=str(e))
+                self.logger.log_rename(old_path, "", status="Failed", source=str(e),confidence=info.get("confidence_score", ""), level=info.get("confidence_level", ""))
                 print(f" Rename failed: {old_path} — {e}")
 
 if __name__ == "__main__":

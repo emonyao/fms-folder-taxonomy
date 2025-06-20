@@ -393,6 +393,27 @@ class ImageMatcher:
             print(f"⚠️ No MERCHANT ID found for '{original_merchant}', keeping original name.")
 
         print(f"DEBUG: Matching {filename}...")
+        
+        # 20250620 add: confidence score
+        # 添加置信度评分
+        match_source = result["match_source"]
+        score_map = {
+            "Metadata": 3,
+            "BrandFallback+Product": 2,
+            "BundleFilename": 2,
+            "BundleByBrand": 1.5,
+            "NotFound": 1
+        }
+        result["confidence_score"] = score_map.get(match_source, 0)
+        
+        # add score level
+        if result["confidence_score"] >= 2.5:
+            result["confidence_level"] = "High"
+        elif result["confidence_score"] >= 1.5:
+            result["confidence_level"] = "Medium"
+        else:
+            result["confidence_level"] = "Low"
+        
         return result
 
 

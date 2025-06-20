@@ -33,7 +33,7 @@ class RenameLogger:
                 filename = os.path.basename(full_path)
                 writer.writerow([idx, full_path, filename, "", ""])
 
-    def log_rename(self, old_path: str, new_path: str, status: str = "Renamed", source: str = "Metadata") -> None:
+    def log_rename(self, old_path: str, new_path: str, status: str = "Renamed", source: str = "Metadata",confidence=None,level=None) -> None:
         """
         Log a single rename operation to both the main log and the backup log.
 
@@ -47,7 +47,7 @@ class RenameLogger:
         new_filename = os.path.basename(new_path)
         time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        row = [time_str, old_path, filename, new_filename, status, source]
+        row = [time_str, old_path, filename, new_filename, status, source, confidence, level]
 
         # Append to main log
         os.makedirs(os.path.dirname(self.main_log_path), exist_ok=True)
@@ -55,7 +55,7 @@ class RenameLogger:
             writer = csv.writer(f_main)
             if not self.header_written["main"]:
                 writer.writerow(["Time", "Original Path", "Original Filename",
-                                  "New Filename", "Status", "Source"])
+                                  "New Filename", "Status", "Source", "Score", "Confidence Level"])
                 self.header_written["main"] = True
             writer.writerow(row)
 
@@ -64,6 +64,6 @@ class RenameLogger:
             writer = csv.writer(f_backup)
             if not self.header_written["backup"]:
                 writer.writerow(["Time", "Original Path", "Original Filename",
-                                  "New Filename", "Status", "Source"])
+                                  "New Filename", "Status", "Source", "Score", "Confidence Level"])
                 self.header_written["backup"] = True
             writer.writerow(row)
