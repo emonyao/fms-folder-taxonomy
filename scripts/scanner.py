@@ -19,19 +19,28 @@ class ImageScanner:
         """
         
         image_paths = []
-        # for dirpath, _, filenames in os.walk(self.input_folder):
-        #     for f in filenames:
-        #         if f.lower().endswith(self.extensions):
-        #             image_paths.append(os.path.join(dirpath, f))
-        for dirpath, dirnames, filenames in os.walk(self.input_folder):
-            if os.path.basename(dirpath).lower() != "images for ops":
-                continue  # Skip folders that are not 'Images for Ops'
 
-            for root, _, files in os.walk(dirpath):  # scan within Images for Ops and its subdirs
-                for f in files:
-                    if f.lower().endswith(self.extensions):
-                        image_paths.append(os.path.join(root, f))
+        # 20250623 change input folder
+        # for dirpath, dirnames, filenames in os.walk(self.input_folder):
+        #     if os.path.basename(dirpath).lower() != "images for ops":
+        #         continue  # Skip folders that are not 'Images for Ops'
+
+        #     for root, _, files in os.walk(dirpath):  # scan within Images for Ops and its subdirs
+        #         for f in files:
+        #             if f.lower().endswith(self.extensions):
+        #                 image_paths.append(os.path.join(root, f))
         
+        for dirpath, dirnames, filenames in os.walk(self.input_folder):
+            if os.path.basename(dirpath).lower() != "marketing form (rcvd)":
+                continue  # 只处理名为 'Marketing Form (Rcvd)' 的文件夹
+
+            for merchant_folder in dirnames:  # 进入每个 merchant 文件夹
+                merchant_path = os.path.join(dirpath, merchant_folder)
+                for root, _, files in os.walk(merchant_path):  # 递归扫描每个 merchant 文件夹下的图像
+                    for f in files:
+                        if f.lower().endswith(self.extensions):
+                            full_path = os.path.join(root, f)
+                            image_paths.append(full_path)
         return image_paths
 
     def export_image_list(self, output_path: str = "output/image_list.csv"):

@@ -239,26 +239,30 @@ class ImageMatcher:
         Returns:
             Dict[str, str]
         """
+
+        # 20250623 change input folder
+        # 从路径中提取 merchant 文件夹名
+        merchant_folder = os.path.basename(os.path.dirname(image_path))
+        cleaned = re.sub(r'^\d+[_\-]*', '', merchant_folder)
+        if "-" in cleaned:
+            fixed_merchant = merchant_folder.split("-")[0].strip(" _")
+        else:
+            fixed_merchant = merchant_folder.strip(" _")
+
         filename = os.path.basename(image_path)
         result = {
             "original_path": image_path,
             "filename": filename,
-            "merchant": "",
+            "merchant": fixed_merchant, #20250623 change
             "brand": "",
             "product": "",
             "variation": "",
-            "match_source": "NotFound"
+            "match_source": "FolderMerchant" # 20250623 change 
         }
 
         row = self.find_row_by_filename(filename)
         if row is not None:
-            # 20250616 update
-            # result["merchant"] = row.get("MERCHANT", "")
-            # result["brand"] = row.get("BRAND", "")
-            # result["product"] = row.get("PRODUCT NAME", "")
-            # result["variation"] = row.get("PROD VARIATION NAME", "")
-            # result["match_source"] = "Metadata"
-            result["merchant"] = row.get("merchant", {}).get("name", "")
+            # result["merchant"] = row.get("merchant", {}).get("name", "")
             result["brand"] = row.get("brand", "")
             # result["product"] = row.get("variation_image", "")
             # 20250619 change: get variation from the filename itself 
@@ -306,7 +310,7 @@ class ImageMatcher:
                 for brand, entries in self.brand_merchant_product_map.items():
                     if brand in filename_clean:
                         result["brand"] = brand
-                        result["merchant"] = entries[0]["merchant"]  # 取第一个 merchant，默认用第一个
+                        # result["merchant"] = entries[0]["merchant"]  # 取第一个 merchant，默认用第一个
                         result["product"] = base_name
                         result["match_source"] = "BundleByBrand"
                         print(f"Bundle match: brand={result['brand']} -> merchant={result['merchant']}")
@@ -316,25 +320,6 @@ class ImageMatcher:
                 best_match_row = None
                 best_score = 0
 
-            # 20250616 delete
-            # for _, row in self.brand_df.iterrows():
-            #     brand = row["BRAND"].strip().lower()
-            #     merchant = row["MERCHANT"].strip()
-            #     product = row.get("PRODUCT NAME","").strip().lower()
-
-            #     if brand in filename_clean:
-            #         score = 0
-            #         base_words = base_name.split()
-            #         product_words = product.split()
-            #         for i in range(min(len(base_words), len(product_words))):
-            #             if base_words[i] == product_words[i]:
-            #                 score += 1
-            #             else:
-            #                 break
-                    
-            #         if score > best_score:
-            #             best_score = score
-            #             best_match_row = row
             
             # 20250619 add get merchant from merchant -> brand -> product
                 for brand, entries in self.brand_merchant_product_map.items():
@@ -359,26 +344,13 @@ class ImageMatcher:
                 if best_match_row is not None:
                     row = best_match_row["row"]
                     result["brand"] = best_match_row["row"]["brand"]
-                    result["merchant"] = best_match_row["merchant"]
-                    # result["product"] = best_match_row.get("PRODUCT NAME","")
+                    # result["merchant"] = best_match_row["merchant"]
                     result["product"] = base_name
                     result["match_source"] = "BrandFallback+Product"
 
                     print(f"✅ Best fallback match: brand={result['brand']}, product={result['product']}, merchant={result['merchant']}")
                 else:
                     print("❌ No suitable fallback row found.")
-
-            # for brand in self.brand_lookup:
-            #     pattern = rf'\b{re.escape(brand)}\b'
-            #     if re.search(pattern, filename_clean):
-
-            #     # if brand in filename_clean:
-            #         result["brand"] = brand
-            #         result["merchant"] = self.brand_lookup[brand]
-            #         result["product"] = os.path.splitext(filename)[0]
-            #         result["match_source"] = "BrandFallback"
-            #         print(f"✅ Brand fallback match: {brand} -> {self.brand_lookup[brand]}")
-            #         break
         
         # 20250606 add: preserve color information
         if not result["variation"]:
