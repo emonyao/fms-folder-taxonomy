@@ -69,6 +69,11 @@ class ImageRenamer:
         matched_info = self.matcher.batch_match(image_paths)
 
         for info in matched_info:
+            # 20250627 add
+            if info["match_source"] == "FromBrand":
+                print(f"🟡 Skipping brand image: {info['original_path']}")
+                continue
+
             old_path = info["original_path"]
             original_dir = os.path.dirname(old_path)
             parent_folder = os.path.basename(original_dir).upper()
@@ -77,8 +82,14 @@ class ImageRenamer:
             
             merchant = self.slugify(info.get("merchant", "unknown"))
             brand = self.slugify(info.get("brand", "unknown"))
-            product = self.slugify(info.get("product", "unknown"))
-            
+            # 20250627 using product name from folder first
+            # product = self.slugify(info.get("product", "unknown"))
+            if info["match_source"] == "FromProduct" and info.get("product_from_folder"):
+                product = self.slugify(info["product_from_folder"])
+            else:
+                product = self.slugify(info.get("product", "unknown"))
+
+
             name_key = f"{merchant}_{brand}_{product}"
             counter_key = (name_key, group_key)
 

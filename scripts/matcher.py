@@ -6,8 +6,19 @@ import pandas as pd
 import re
 import json
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from utils import extract_color_phrase
+
+def clean_merchant_folder_name(folder_name: str) -> str:
+    """
+    清洗 merchant 文件夹名：
+    - 去掉开头的下划线及之前的所有字符
+    - 去掉第一个 '-' 及之后的内容
+    """
+    folder_name = folder_name.strip()
+    folder_name = re.sub(r'^[^a-zA-Z]*_', '', folder_name)  # 删除前缀数字与下划线
+    folder_name = folder_name.split('-', 1)[0]              # 去掉 '-' 后的内容
+    return folder_name.strip()
 
 class ImageMatcher:
     def __init__(self, metadata_path: str = "data/metadata.json"):
@@ -52,21 +63,9 @@ class ImageMatcher:
                 if name and mid:
                     self.merchant_name_to_id[name] = mid
 
-        # 20250606 add 
-        # self.brand_lookup = {} # brand -> merchant
-        # self.brand_df = pd.read_csv("data/merchant_brand_list.csv")
-        # df = pd.read_csv("data/merchant_brand_list.csv")
-        # for _, row in df.iterrows():
-        #     brand = row["BRAND"].strip().lower()
-        #     merchant = row["MERCHANT"].strip()
-        #     self.brand_lookup[brand] = merchant
-
         # 20250619 add brand -> merchant -> product, *-*
         self.brand_merchant_product_map = {}
         for item in self.meta_list:
-            # brand = item.get("brand","").strip().lower()
-            # merichant = item.get("merchant",{}).get("name","").strip()
-            # product = item.get("variation_image","").strip().lower()
             raw_brand = item.get("brand", "")
             raw_merchant = item.get("merchant", {}).get("name", "")
             raw_product = item.get("product_name", "")
@@ -89,29 +88,11 @@ class ImageMatcher:
         os.makedirs(debug_dir, exist_ok=True)
         self.debug_log_path = os.path.join(debug_dir, f"match_debug_log_{timestamp}.csv")
 
-        # self.debug_log_path = "tests/match_debug_log.csv"
-        # os.makedirs(os.path.dirname(self.debug_log_path),exist_ok=True)
+
         with open(self.debug_log_path, "w", encoding="utf-8",newline='') as f:
             writer = csv.writer(f)
             writer.writerow(["Image Filename", "Slugified Image", "Slugified Metadata", "Matched", "Metadata Column"])
 
-        # 在 __init__ 中添加
-        # self.merchant_name_to_id = {}
-        # if "MERCHANT" in self.meta_df.columns and "MERCHANT ID" in self.meta_df.columns:
-        #     for _, row in self.meta_df.iterrows():
-        #         name = row["MERCHANT"].strip()
-        #         mid = row["MERCHANT ID"]
-        #         if name and mid:
-        #             self.merchant_name_to_id[name] = mid
-
-# Columns that may contain image filenames
-# IMAGE_COLUMNS = ["IMAGE 1", "IMAGE 2", "IMAGE 3", "IMAGE 4", "PROD VARIATION IMAGE"]
-
-# def load_metadata(metadata_path="data/image_metadata.csv"):
-#     """
-#     Load metadata CSV into a DataFrame.
-#     """
-#     return pd.read_csv(metadata_path)
 
     def normalize_filename(self, name: str) -> str:
         """
@@ -127,59 +108,6 @@ class ImageMatcher:
         name = os.path.splitext(name)[0]            # remove file extension
         return name
 
-
-    # 20250618 change list to dict
-    # def find_row_by_filename(self, filename: str) -> Optional[Dict]:
-    #     """
-    #     Try to find a row where the filename appears in any IMAGE column.
-
-    #     Returns:
-    #         row (pd.Series) if match found, else None
-    #     """
-    #     # filename_clean = filename.strip().lower()
-    #     filename_clean = self.normalize_filename(filename)
-
-    #     matched = False
-
-    #     print(f"\n🔍 Trying to match image: {filename_clean}")
-
-    #     # 20250616 update
-    #     # for col in self.image_columns:
-    #     #     if col in self.meta_df.columns:
-    #     #         col_series = self.meta_df[col].astype(str)
-
-    #     #         for i, cell in enumerate(col_series):
-    #     #             cell_clean = self.normalize_filename(cell)
-
-    #     #             is_match = filename_clean == cell_clean
-    #     #             matched = matched or is_match
-    #     for item in self.meta_list:
-    #         for col in self.image_columns:
-    #             images = item.get(col)
-    #             if not images:
-    #                 continue
-    #             # 兼容 "variation_image": str 和 "images": List[str]
-    #             if isinstance(images, str):
-    #                 images = [images]
-    #             for img in images:
-    #                 img_clean = self.normalize_filename(str(img))
-    #                 is_match = filename_clean == img_clean
-    #                 matched = matched or is_match
-
-
-    #                 with open(self.debug_log_path, "a", encoding="utf-8",newline='') as f:
-    #                     writer = csv.writer(f)
-    #                     writer.writerow([
-    #                         filename, filename_clean, img_clean,
-    #                         "Yes" if is_match else "No", col
-    #                     ])
-
-    #                 print(f"Comparing image='{filename_clean}' vs metadata='{img_clean}'")
-    #                 if is_match:
-    #                     print(f"✅ Match found in column '{col}': {img}")
-    #                     return item
-    #     print("❌ No match found in metadata.")
-    #     return None
     def find_row_by_filename(self, filename: str) -> Optional[Dict]:
         normalized = self.normalize_filename(filename)
         result = self.filename_to_meta.get(normalized)
@@ -187,13 +115,7 @@ class ImageMatcher:
         matched_slug = ""
         matched_column = ""
 
-        # 20250619 add and change
-        # for key, row in self.filename_to_meta.items():
-        #     if normalized == key:
-        #         # matched = True
-        #         matched_slug = key
-        #         break
-        # 遍历 meta_list 而不是 filename_to_meta，这样才能记录字段来源
+
         for item in self.meta_list:
             for col in self.image_columns:
                 values = item.get(col)
@@ -232,7 +154,7 @@ class ImageMatcher:
 
 
 
-    def match_image(self, image_path: str) -> Dict[str, str]:
+    def match_image(self, image_path: str, structure: str) -> Dict[str, str]:
         """
         Match an image to metadata and extract naming info.
 
@@ -242,12 +164,15 @@ class ImageMatcher:
 
         # 20250623 change input folder
         # 从路径中提取 merchant 文件夹名
+        # merchant_folder = os.path.basename(os.path.dirname(image_path))
+        # cleaned = re.sub(r'^\d+[_\-]*', '', merchant_folder)
+        # if "-" in cleaned:
+        #     fixed_merchant = merchant_folder.split("-")[0].strip(" _")
+        # else:
+        #     fixed_merchant = merchant_folder.strip(" _")
+        # 20250627 change input logic of merchant name in folder
         merchant_folder = os.path.basename(os.path.dirname(image_path))
-        cleaned = re.sub(r'^\d+[_\-]*', '', merchant_folder)
-        if "-" in cleaned:
-            fixed_merchant = merchant_folder.split("-")[0].strip(" _")
-        else:
-            fixed_merchant = merchant_folder.strip(" _")
+        fixed_merchant = clean_merchant_folder_name(merchant_folder)
 
         filename = os.path.basename(image_path)
         result = {
@@ -260,13 +185,19 @@ class ImageMatcher:
             "match_source": "FolderMerchant" # 20250623 change 
         }
 
+        # 20250627 add
+        if structure == "A":
+            result["match_source"] = "FlatImage"
+        elif structure == "B":
+            result["product_from_folder"] = os.path.basename(os.path.dirname(image_path))
+            result["match_source"] = "FromProduct"
+        elif structure == "C":
+            result["match_source"] = "FromBrand"
+
+
         row = self.find_row_by_filename(filename)
         if row is not None:
-            # result["merchant"] = row.get("merchant", {}).get("name", "")
             result["brand"] = row.get("brand", "")
-            # result["product"] = row.get("variation_image", "")
-            # 20250619 change: get variation from the filename itself 
-            # result["variation"] = row.get("product_variation_name", "")
             # 提取颜色或材质
             color_or_material = extract_color_phrase(filename)
 
@@ -356,13 +287,23 @@ class ImageMatcher:
         if not result["variation"]:
             result["variation"] = extract_color_phrase(filename) or ""
 
-        # ✅ 替换 merchant name 为 merchant ID（仅限找到对应 ID 的情况）
+        # 替换 merchant name 为 merchant ID（仅限找到对应 ID 的情况）
         original_merchant = result["merchant"]
-        if original_merchant in self.merchant_name_to_id:
-            result["merchant"] = self.merchant_name_to_id[original_merchant]
-            print(f"🔄 Replaced merchant name '{original_merchant}' with ID '{result['merchant']}'")
+        # 20250629 chang input logic of merchant name i nfolder
+        # if original_merchant in self.merchant_name_to_id:
+        #     result["merchant"] = self.merchant_name_to_id[original_merchant]
+        # 尝试在 metadata 中找到包含 fixed_merchant 的 merchant name
+        matched_id = None
+        for name, merchant_id in self.merchant_name_to_id.items():
+            if fixed_merchant.lower() in name.lower():
+                matched_id = merchant_id
+                break
+
+        if matched_id:
+            result["merchant"] = matched_id
+            print(f"🔄 Matched merchant folder '{fixed_merchant}' to ID '{matched_id}'")
         else:
-            print(f"⚠️ No MERCHANT ID found for '{original_merchant}', keeping original name.")
+            print(f"⚠️ No MERCHANT ID found for '{fixed_merchant}', keeping original name.")
 
         print(f"DEBUG: Matching {filename}...")
         
@@ -389,11 +330,27 @@ class ImageMatcher:
         return result
 
 
-    def batch_match(self, image_paths: List[str]) -> List[Dict]:
+    def batch_match(self, image_path_tuples: List[Tuple[str, str]]) -> List[Dict[str, str]]:
         """
         Match a list of image paths to metadata.
 
         Returns:
             List[Dict]
         """
-        return [self.match_image(path) for path in image_paths]
+        # 20250627
+        # return [self.match_image(path, structure) for path, structure in image_path_tuples]
+        results = []
+        for path,structure in image_path_tuples:
+            structure = self.get_structure_type(path)
+            result = self.match_image(path, structure)
+            results.append(result)
+        return results
+
+    def get_structure_type(self, image_path: str) -> str:
+        parts = image_path.lower().split(os.sep)
+        if parts[-3] == "images":  # 结构 B
+            return "B"
+        elif parts[-2] == "images":  # 结构 A
+            return "A"
+        else:  # 假设不是 A 就是 C（品牌图）
+            return "C"

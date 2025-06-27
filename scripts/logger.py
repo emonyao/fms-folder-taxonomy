@@ -29,9 +29,9 @@ class RenameLogger:
         with open(output_path, "w", newline='', encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(["Index", "Original Path", "Original Filename", "New Path", "New Filename"])
-            for idx, full_path in enumerate(image_paths, 1):
+            for idx, (full_path, structure) in enumerate(image_paths, 1):
                 filename = os.path.basename(full_path)
-                writer.writerow([idx, full_path, filename, "", ""])
+                writer.writerow([idx, full_path, filename, "", "", structure])
 
     def log_rename(self, old_path: str, new_path: str, status: str = "Renamed", source: str = "Metadata",confidence=None,level=None) -> None:
         """

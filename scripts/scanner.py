@@ -40,7 +40,23 @@ class ImageScanner:
                     for f in files:
                         if f.lower().endswith(self.extensions):
                             full_path = os.path.join(root, f)
-                            image_paths.append(full_path)
+                            # 20250627 add 3 types of filepath
+                            # image_paths.append(full_path)  
+                            rel = os.path.relpath(full_path, merchant_path)
+                            parts = rel.split(os.sep)
+
+                            if len(parts) == 2:
+                                structure = "A"  # merchant/Images/image.jpg
+                            elif len(parts) == 3:
+                                structure = "B"  # merchant/Images/Product/image.jpg
+                            elif len(parts) == 4:
+                                structure = "C"  # merchant/Images/Brand/image.jpg
+                            else:
+                                structure = "Unknown"
+
+                            image_paths.append((full_path, structure))
+
+
         return image_paths
 
     def export_image_list(self, output_path: str = "output/image_list.csv"):
@@ -56,14 +72,5 @@ class ImageScanner:
         print(f"Image list saved to: {output_path }")
 
 if __name__ == "__main__":
-    # config = load_config("config.yaml")
-    # image_dir = config["input_folder"]
-
-    # print(f"Scanning images from: {image_dir}")
-    # paths = scan_image_paths(image_dir)
-    # print(f"Found {len(paths)} image(s)")
-
-    # write_image_list_csv(paths)  # call logger.py and write to csv
-    # print("Image list saved to: output/image_list.csv")
     scanner = ImageScanner() 
     scanner.export_image_list()
