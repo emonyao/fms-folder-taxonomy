@@ -37,6 +37,7 @@ class ImageMatcher:
             self.meta_list = json.loads(content)
             self.image_columns = ["product_name", "product_variation_name", "variation_image", "images"]  # 两种可能图字段：主图 + 多图列表
 
+            
             # 20250618 add: change list to dict
             self.filename_to_meta = {}
             for item in self.meta_list:
@@ -80,6 +81,10 @@ class ImageMatcher:
                     "product": product,
                     "row": item
                 })
+
+        # 20250630 add
+        self.brand_keywords = {brand: set(brand.lower().split()) for brand in self.brand_merchant_product_map}
+
 
         # 20250605 add output slugified name for testing
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S") 
@@ -153,39 +158,24 @@ class ImageMatcher:
 
 
 
-
-    def match_image(self, image_path: str, structure: str) -> Dict[str, str]:
-        """
-        Match an image to metadata and extract naming info.
-
-        Returns:
-            Dict[str, str]
-        """
-
-        # 20250623 change input folder
-        # 从路径中提取 merchant 文件夹名
-        # merchant_folder = os.path.basename(os.path.dirname(image_path))
-        # cleaned = re.sub(r'^\d+[_\-]*', '', merchant_folder)
-        # if "-" in cleaned:
-        #     fixed_merchant = merchant_folder.split("-")[0].strip(" _")
-        # else:
-        #     fixed_merchant = merchant_folder.strip(" _")
-        # 20250627 change input logic of merchant name in folder
+    #20250630 update 
+    def match_image(self, image_path: str, structure: str, filename_keywords: List[str]) -> Dict[str, str]:
         merchant_folder = os.path.basename(os.path.dirname(image_path))
         fixed_merchant = clean_merchant_folder_name(merchant_folder)
 
         filename = os.path.basename(image_path)
+        base_name = os.path.splitext(filename)[0].lower()  # 也许仍然需要用于 fallback 赋值
         result = {
             "original_path": image_path,
             "filename": filename,
-            "merchant": fixed_merchant, #20250623 change
+            "merchant": fixed_merchant,
             "brand": "",
             "product": "",
             "variation": "",
-            "match_source": "FolderMerchant" # 20250623 change 
+            "match_source": "FolderMerchant"
         }
 
-        # 20250627 add
+        # 结构判断
         if structure == "A":
             result["match_source"] = "FlatImage"
         elif structure == "B":
@@ -194,122 +184,66 @@ class ImageMatcher:
         elif structure == "C":
             result["match_source"] = "FromBrand"
 
-
+        # 精确 filename 匹配
         row = self.find_row_by_filename(filename)
         if row is not None:
             result["brand"] = row.get("brand", "")
-            # 提取颜色或材质
-            color_or_material = extract_color_phrase(filename)
+            result["product"] = row.get("product_name", "")
+            result["match_source"] = "Metadata"
 
-            # 暂时不加编号，也不加 po/sb，这部分后续由 rename_images 控制更清晰
-            # result["variation"] = color_or_material if color_or_material else ""
-            # 先尝试从 filename 中提取颜色或材质（如 grey, black, khaki 等）
-            color_or_material = extract_color_phrase(filename)
-
-            # 初始化 variation 为空
-            variation_parts = []
-
-            # 加入颜色词（如果有）
-            if color_or_material:
-                variation_parts.append(color_or_material)
-
-            # 加入编号（在 rename_images 中根据计数器动态生成，1 不显示，2 开始才显示）
-            # 例如这里不加，留给后续 rename_images 方法处理
-
-            # 加入分组信息（PO 或 SB），也留给 rename_images 添加 `_po`, `_sb`
-
-            # 把拼接好的 variation_parts 合并为字符串
-            result["variation"] = "_".join(variation_parts)
-            # result["match_source"] = "Metadata"
-            # 如果是 bundle 图，不使用 metadata 中的 product name，保留原始文件名
             if "bundle" in filename.lower():
-                result["product"] = os.path.splitext(filename)[0]
+                result["product"] = base_name
                 result["match_source"] = "BundleFilename"
-            else:
-                result["product"] = row.get("product_name", "")
-                result["match_source"] = "Metadata"
-
         else:
-            print(f"⚠️ No match found for {filename} in metadata")
-
-            # 20250606 add
-            filename_clean = filename.lower()
-            base_name = os.path.splitext(filename)[0].lower()
-
-            # 20250620: 如果包含 "bundle"，直接根据 brand 获取 merchant
-            if "bundle" in filename_clean:
+            # fallback：包含 bundle 的名称
+            if "bundle" in filename.lower():
                 for brand, entries in self.brand_merchant_product_map.items():
-                    if brand in filename_clean:
+                    if brand in base_name:
                         result["brand"] = brand
-                        # result["merchant"] = entries[0]["merchant"]  # 取第一个 merchant，默认用第一个
                         result["product"] = base_name
                         result["match_source"] = "BundleByBrand"
-                        print(f"Bundle match: brand={result['brand']} -> merchant={result['merchant']}")
                         break
 
+            # fallback：brand + fuzzy product
             else:
-                best_match_row = None
                 best_score = 0
-
-            
-            # 20250619 add get merchant from merchant -> brand -> product
+                best_match_row = None
                 for brand, entries in self.brand_merchant_product_map.items():
-                    if brand in filename_clean:
+                    if brand in base_name:
                         for entry in entries:
-                            product_name = entry["product"]
-                            product_words = product_name.lower().split()
-                            filename_words = base_name.split()
-
-                            # fuzzy match by leading word overlap
-                            score = 0
-                            for i in range(min(len(product_words), len(filename_words))):
-                                if product_words[i] == filename_words[i]:
-                                    score += 1
-                                else:
-                                    break
+                            product_words = entry["product"].lower().split()
+                            score = sum(1 for i in range(min(len(product_words), len(filename_keywords)))
+                                        if product_words[i] == filename_keywords[i])
                             if score > best_score:
                                 best_score = score
                                 best_match_row = entry
 
-            # 20250619 update
-                if best_match_row is not None:
+                if best_match_row:
                     row = best_match_row["row"]
-                    result["brand"] = best_match_row["row"]["brand"]
-                    # result["merchant"] = best_match_row["merchant"]
+                    result["brand"] = row["brand"]
                     result["product"] = base_name
                     result["match_source"] = "BrandFallback+Product"
-
-                    print(f"✅ Best fallback match: brand={result['brand']}, product={result['product']}, merchant={result['merchant']}")
                 else:
-                    print("❌ No suitable fallback row found.")
-        
-        # 20250606 add: preserve color information
-        if not result["variation"]:
-            result["variation"] = extract_color_phrase(filename) or ""
+                    print(f"❌ No suitable fallback row found for: {filename}")
 
-        # 替换 merchant name 为 merchant ID（仅限找到对应 ID 的情况）
-        original_merchant = result["merchant"]
-        # 20250629 chang input logic of merchant name i nfolder
-        # if original_merchant in self.merchant_name_to_id:
-        #     result["merchant"] = self.merchant_name_to_id[original_merchant]
-        # 尝试在 metadata 中找到包含 fixed_merchant 的 merchant name
+        # 提取颜色或材质
+        if not result["variation"]:
+            variation = extract_color_phrase(filename)
+            result["variation"] = variation or ""
+
+        # 替换 merchant name 为 ID
         matched_id = None
         for name, merchant_id in self.merchant_name_to_id.items():
             if fixed_merchant.lower() in name.lower():
                 matched_id = merchant_id
                 break
-
         if matched_id:
             result["merchant"] = matched_id
             print(f"🔄 Matched merchant folder '{fixed_merchant}' to ID '{matched_id}'")
         else:
             print(f"⚠️ No MERCHANT ID found for '{fixed_merchant}', keeping original name.")
 
-        print(f"DEBUG: Matching {filename}...")
-        
-        # 20250620 add: confidence score
-        # 添加置信度评分
-        match_source = result["match_source"]
+        # 置信度分级
         score_map = {
             "Metadata": 3,
             "BrandFallback+Product": 2,
@@ -317,17 +251,18 @@ class ImageMatcher:
             "BundleByBrand": 1.5,
             "NotFound": 1
         }
-        result["confidence_score"] = score_map.get(match_source, 0)
-        
-        # add score level
+        result["confidence_score"] = score_map.get(result["match_source"], 0)
         if result["confidence_score"] >= 2.5:
             result["confidence_level"] = "High"
         elif result["confidence_score"] >= 1.5:
             result["confidence_level"] = "Medium"
         else:
             result["confidence_level"] = "Low"
-        
+
+        print(f"DEBUG: Matching {filename}...")
+
         return result
+
 
 
     def batch_match(self, image_path_tuples: List[Tuple[str, str]]) -> List[Dict[str, str]]:
@@ -341,8 +276,13 @@ class ImageMatcher:
         # return [self.match_image(path, structure) for path, structure in image_path_tuples]
         results = []
         for path,structure in image_path_tuples:
-            structure = self.get_structure_type(path)
-            result = self.match_image(path, structure)
+            # 20250630 promote efficiency
+            # structure = self.get_structure_type(path)
+            filename = os.path.basename(path)
+            base_name = os.path.splitext(filename)[0].lower()
+            filename_keywords = base_name.split()
+
+            result = self.match_image(path, structure, filename_keywords)
             results.append(result)
         return results
 

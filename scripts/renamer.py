@@ -47,7 +47,17 @@ class ImageRenamer:
         product = self.clean_text_keep_space(info_dict.get("product", "unknown"))
         variation = self.clean_text_keep_space(info_dict.get("variation", "unknown"))
 
-        base_name = f"{merchant}_{brand}_{product}_{variation}"
+        # base_name = f"{merchant}_{brand}_{product}_{variation}"
+        parts = [merchant]
+        if brand and brand != merchant:
+            parts.append(brand)
+        if product:
+            parts.append(product)
+        if variation:
+            parts.append(variation)
+
+        base_name = "_".join(filter(None, parts))
+        
         if version > 1:
             base_name += f"_v{version}"
         return base_name + ".jpg"
