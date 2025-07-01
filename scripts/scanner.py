@@ -13,13 +13,18 @@ class ImageScanner:
  
     def remove_images_folders(self, path: str) -> str:
         """
-        从路径中移除所有的 "Images" 文件夹
+        从路径中移除所有的 "Images" 和 "USE THIS" 文件夹，并去除连续重复的文件夹名
         """
-        # 统一分隔符
         norm_path = path.replace('/', os.sep).replace('\\', os.sep)
         parts = norm_path.split(os.sep)
-        filtered_parts = [part for part in parts if part.lower() != "images"]
-        return os.sep.join(filtered_parts)
+        # 先移除目标文件夹
+        filtered_parts = [part for part in parts if part.lower() not in ("images", "use this")]
+        # 再去除连续重复的文件夹名
+        deduped_parts = []
+        for part in filtered_parts:
+            if not deduped_parts or deduped_parts[-1].lower() != part.lower():
+                deduped_parts.append(part)
+        return os.sep.join(deduped_parts)
 
     def scan_image_paths(self) -> List[Tuple[str, str, str, str]]:
         """

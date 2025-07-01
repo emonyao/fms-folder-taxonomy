@@ -93,6 +93,7 @@ class ImageMatcher:
         os.makedirs(debug_dir, exist_ok=True)
         self.debug_log_path = os.path.join(debug_dir, f"match_debug_log_{timestamp}.csv")
 
+        self.debug_file_path = "output/debug_log.txt"
 
         with open(self.debug_log_path, "w", encoding="utf-8",newline='') as f:
             writer = csv.writer(f)
@@ -154,6 +155,7 @@ class ImageMatcher:
             print(f"✅ Fast match found for {filename}")
         else:
             print(f"❌ No fast match found for {filename}")
+        self.debug_log(f"✅ Fast match found for {filename}")
         return matched_row
 
 
@@ -176,94 +178,132 @@ class ImageMatcher:
             "match_source": "FolderMerchant"
         }
 
-        # 根据 clean_path 进一步判断结构类型
+        # 20250701 新逻辑：只用路径和文件名，不查 metadata
         if clean_path:
-            # 相对于 Marketing Form (Rcvd) 的路径
-            rel_parts = clean_path.split(os.sep)
-            # 找到 Marketing Form (Rcvd) 的位置
-            marketing_index = -1
-            for i, part in enumerate(rel_parts):
-                if part.lower() == "marketing form (rcvd)":
-                    marketing_index = i
-                    break
+            # 统一分隔符
+            norm_path = clean_path.replace('/', os.sep).replace('\\', os.sep)
+            parts = norm_path.split(os.sep)
+            print(f"[DEBUG] 路径分割 parts: {parts}")
+            self.debug_log(f"[DEBUG] 路径分割 parts: {parts}")
+            # 找到 "marketing form (rcvd)" 的索引
+            try:
+                idx = [p.lower() for p in parts].index("marketing form (rcvd)")
+                merchant = parts[idx + 1] if len(parts) > idx + 1 else "unknown"
+                print(f"[DEBUG] 找到 merchant: {merchant} (parts[{idx + 1}])")
+                self.debug_log(f"[DEBUG] 找到 merchant: {merchant} (parts[{idx + 1}])")
+            except ValueError:
+                merchant = "unknown"
+                print(f"[DEBUG] 未找到 'marketing form (rcvd)'，merchant 设为 unknown")
+                self.debug_log(f"[DEBUG] 未找到 'marketing form (rcvd)'，merchant 设为 unknown")
             
-            if marketing_index >= 0:
+            if merchant != "unknown":
                 # 提取 merchant 之后的路径部分
-                after_merchant_parts = rel_parts[marketing_index + 2:]  # +2 跳过 Marketing Form (Rcvd) 和 merchant
-                
+                after_merchant_parts = parts[parts.index(merchant) + 1:]  # +1 跳过 merchant
+                # 跳过所有包含 'images' 或 'use this' 的文件夹和纯数字文件夹
+                after_merchant_parts = [p for p in after_merchant_parts if 'images' not in p.lower() and 'use this' not in p.lower() and not p.isdigit()]
+                # 去除实际重复但写法不同的文件夹名
+                after_merchant_parts = self.dedup_similar_folders(after_merchant_parts)
+                print(f"[DEBUG] merchant: {merchant}, after_merchant_parts: {after_merchant_parts}, filename: {filename}")
+                self.debug_log(f"[DEBUG] merchant: {merchant}, after_merchant_parts: {after_merchant_parts}, filename: {filename}")
                 if len(after_merchant_parts) == 1:
                     # merchant/image.jpg - 结构 A
                     structure = "A"
                     result["match_source"] = "FlatImage"
+                    image_base = os.path.splitext(filename)[0]
+                    result["product"] = image_base
+                    print(f"[DEBUG] 结构A赋值: product={result['product']}")
+                    self.debug_log(f"[DEBUG] 结构A赋值: product={result['product']}")
                 elif len(after_merchant_parts) == 2:
                     # merchant/brand_or_product/image.jpg - 结构 B
                     folder_name = after_merchant_parts[0]
-                    result["product_from_folder"] = folder_name
-                    result["match_source"] = "FromProduct"
+                    print(f"[DEBUG] 结构B folder_name: {folder_name}")
+                    self.debug_log(f"[DEBUG] 结构B folder_name: {folder_name}")
+                    
+                    result["brand"] = folder_name
+                    result["product"] = os.path.splitext(filename)[0]
+                    result["match_source"] = "FromPathBrandImage"
+                    print(f"[DEBUG] 结构B品牌: brand={result['brand']}, product={result['product']}")
+                    self.debug_log(f"[DEBUG] 结构B品牌: brand={result['brand']}, product={result['product']}")
+
                     structure = "B"
+                elif len(after_merchant_parts) == 3:
+                    # merchant/brand/product/variation.jpg - 结构C
+                    brand_folder = after_merchant_parts[0]
+                    product_folder = after_merchant_parts[1]
+                    variation_file = after_merchant_parts[2]
+                    variation_name = os.path.splitext(variation_file)[0]
+                    result["brand"] = brand_folder
+                    result["product"] = product_folder
+                    result["variation"] = variation_name
+                    result["match_source"] = "FromPathBrandProductVariation"
+                    print(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
+                    self.debug_log(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                 else:
                     structure = "Unknown"
+                    print(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
+                    self.debug_log(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
 
-        # 20250701 新逻辑：只用路径和文件名，不查 metadata
-        if structure in ["A", "B"]:
-            # merchant/image.jpg 或 merchant/brand/image.jpg
-            # 用 merchant + image name（去掉扩展名）命名
-            image_base = os.path.splitext(filename)[0]
-            result["product"] = image_base
-            result["match_source"] = "FromPathImageName"
-        elif structure == "C":
-            # merchant/product/1.jpg
-            # 用 merchant + product 文件夹名命名
-            if clean_path:
-                rel_parts = clean_path.split(os.sep)
-                marketing_index = -1
-                for i, part in enumerate(rel_parts):
-                    if part.lower() == "marketing form (rcvd)":
-                        marketing_index = i
-                        break
-                if marketing_index >= 0:
-                    merchant = rel_parts[marketing_index + 1] if len(rel_parts) > marketing_index + 1 else "unknown"
-                    product = rel_parts[marketing_index + 2] if len(rel_parts) > marketing_index + 2 else "unknown"
-                    result["merchant"] = merchant
-                    result["product"] = product
-                    result["match_source"] = "FromPathMerchantProduct"
+        # 20250701 清理 merchant name 并尝试匹配 ID
+        cleaned_merchant = clean_merchant_folder_name(merchant)
+        print(f"[DEBUG] 清理后 merchant: {cleaned_merchant}")
+        self.debug_log(f"[DEBUG] 清理后 merchant: {cleaned_merchant}")
+        result["merchant"] = cleaned_merchant  # 先设置为清理后的名称
+        
+        # 替换 merchant name 为 ID
+        matched_id = None
+        for name, merchant_id in self.merchant_name_to_id.items():
+            if cleaned_merchant.lower() in name.lower() or name.lower() in cleaned_merchant.lower():
+                matched_id = merchant_id
+                break
+        if matched_id:
+            result["merchant"] = matched_id
+            print(f"🔄 Matched merchant folder '{cleaned_merchant}' to ID '{matched_id}'")
+            self.debug_log(f"🔄 Matched merchant folder '{cleaned_merchant}' to ID '{matched_id}'")
+        else:
+            print(f"⚠️ No MERCHANT ID found for '{cleaned_merchant}', keeping cleaned name.")
+            self.debug_log(f"⚠️ No MERCHANT ID found for '{cleaned_merchant}', keeping cleaned name.")
 
         # 提取颜色或材质
         if not result["variation"]:
             variation = extract_color_phrase(filename)
             result["variation"] = variation or ""
+            print(f"[DEBUG] variation 提取: {result['variation']}")
+            self.debug_log(f"[DEBUG] variation 提取: {result['variation']}")
 
-        # 替换 merchant name 为 ID
-        matched_id = None
-        for name, merchant_id in self.merchant_name_to_id.items():
-            if merchant.lower() in name.lower():
-                matched_id = merchant_id
-                break
-        if matched_id:
-            result["merchant"] = matched_id
-            print(f"🔄 Matched merchant folder '{merchant}' to ID '{matched_id}'")
-        else:
-            print(f"⚠️ No MERCHANT ID found for '{merchant}', keeping original name.")
-
-        # 置信度分级
-        score_map = {
-            "Metadata": 3,
-            "BrandFromFilename": 2.5,
-            "ProductFromFilename": 2,
-            "BrandFallback+Product": 2,
-            "BundleFilename": 2,
-            "BundleByBrand": 1.5,
-            "NotFound": 1
+        # 置信度分级（结构分+字段分）
+        # 结构分
+        structure_score_map = {
+            "FromPathBrandProductVariation": 2.0,
+            "FromPathBrandImage": 1.5,
+            "FromPathProduct": 1.2,
+            "FlatImage": 1.0,
+            "FolderMerchant": 0.5,
+            "NotFound": 0
         }
-        result["confidence_score"] = score_map.get(result["match_source"], 0)
-        if result["confidence_score"] >= 2.5:
+        structure_score = structure_score_map.get(result["match_source"], 0)
+        # 字段分
+        field_score = 0
+        if result.get("merchant"): field_score += 0.5
+        if result.get("brand"): field_score += 0.8
+        if result.get("product"): field_score += 1.0
+        if result.get("variation"): field_score += 0.7
+        score = round(structure_score + field_score, 2)
+        result["confidence_score"] = score
+        if score >= 3.0:
             result["confidence_level"] = "High"
-        elif result["confidence_score"] >= 1.5:
+        elif score >= 2.0:
             result["confidence_level"] = "Medium"
-        else:
+        elif score > 0:
             result["confidence_level"] = "Low"
+        else:
+            result["confidence_level"] = "None"
 
+        print(f"[DEBUG] Final result: {result}")
+        self.debug_log(f"[DEBUG] Final result: {result}")
         print(f"DEBUG: Matching {filename}...")
+        self.debug_log(f"DEBUG: Matching {filename}...")
+
+        print("[RENAME DEBUG]", result)
 
         return result
 
@@ -297,3 +337,38 @@ class ImageMatcher:
             return "A"
         else:  # 假设不是 A 就是 C（品牌图）
             return "C"
+
+    def is_brand_folder(self, folder_name: str) -> bool:
+        """
+        判断文件夹名是否为品牌名
+        """
+        # 特殊情况：数字文件夹直接认为是产品编号
+        if folder_name.isdigit():
+            return False
+            
+        folder_normalized = folder_name.lower().strip()
+        
+        for item in self.meta_list:
+            brand = item.get("brand")
+            # 检查 brand 是否存在且不为 None
+            if brand and isinstance(brand, str):
+                brand_normalized = brand.lower().strip()
+                if (folder_normalized == brand_normalized or 
+                    brand_normalized in folder_normalized or 
+                    folder_normalized in brand_normalized):
+                    return True
+        return False
+
+    def dedup_similar_folders(self, parts):
+        seen = set()
+        result = []
+        for p in parts:
+            key = p.replace(" ", "").lower()
+            if key not in seen:
+                seen.add(key)
+                result.append(p)
+        return result
+
+    def debug_log(self, msg: str):
+        with open(self.debug_file_path, "a", encoding="utf-8") as f:
+            f.write(msg + "\n")
