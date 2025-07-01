@@ -11,25 +11,24 @@ class ImageScanner:
         self.input_folder: str = self.config.get("input_folder", "images/")
         self.extensions: Tuple[str] = (".jpg", ".jpeg", ".png")
  
-    # def scan_image_paths(root, extensions=(".jpg", ".jpeg", ".png")):
-    def scan_image_paths(self) -> List[str]:
+    def remove_images_folders(self, path: str) -> str:
+        """
+        从路径中移除所有的 "Images" 文件夹
+        """
+        # 统一分隔符
+        norm_path = path.replace('/', os.sep).replace('\\', os.sep)
+        parts = norm_path.split(os.sep)
+        filtered_parts = [part for part in parts if part.lower() != "images"]
+        return os.sep.join(filtered_parts)
 
+    def scan_image_paths(self) -> List[Tuple[str, str, str, str]]:
         """
         Recursively scan for image files in the given directory.
+        Returns: List of tuples (full_path, structure, clean_path, merchant)
         """
         
         image_paths = []
 
-        # 20250623 change input folder
-        # for dirpath, dirnames, filenames in os.walk(self.input_folder):
-        #     if os.path.basename(dirpath).lower() != "images for ops":
-        #         continue  # Skip folders that are not 'Images for Ops'
-
-        #     for root, _, files in os.walk(dirpath):  # scan within Images for Ops and its subdirs
-        #         for f in files:
-        #             if f.lower().endswith(self.extensions):
-        #                 image_paths.append(os.path.join(root, f))
-        
         for dirpath, dirnames, filenames in os.walk(self.input_folder):
             if os.path.basename(dirpath).lower() != "marketing form (rcvd)":
                 continue  # 只处理名为 'Marketing Form (Rcvd)' 的文件夹
@@ -40,22 +39,32 @@ class ImageScanner:
                     for f in files:
                         if f.lower().endswith(self.extensions):
                             full_path = os.path.join(root, f)
-                            # 20250627 add 3 types of filepath
-                            # image_paths.append(full_path)  
-                            rel = os.path.relpath(full_path, merchant_path)
-                            parts = rel.split(os.sep)
-
-                            if len(parts) == 2:
-                                structure = "A"  # merchant/Images/image.jpg
-                            elif len(parts) == 3:
-                                structure = "B"  # merchant/Images/Product/image.jpg
-                            elif len(parts) == 4:
-                                structure = "C"  # merchant/Images/Brand/image.jpg
+                            
+                            # 移除所有 "Images" 文件夹后的路径
+                            clean_path = self.remove_images_folders(full_path)
+                            
+                            # 相对于 Marketing Form (Rcvd) 的路径
+                            rel_to_marketing = os.path.relpath(clean_path, dirpath)
+                            parts = rel_to_marketing.split(os.sep)
+                            
+                            # 提取 merchant（第一个文件夹）
+                            merchant = parts[0] if len(parts) > 0 else "unknown"
+                            
+                            # 根据剩余路径长度判断结构
+                            remaining_parts = parts[1:] if len(parts) > 1 else []
+                            
+                            if len(remaining_parts) == 1:
+                                # merchant/image.jpg
+                                structure = "A"
+                            elif len(remaining_parts) == 2:
+                                # merchant/brand/image.jpg 或 merchant/product/image.jpg
+                                # 这里需要进一步判断是 brand 还是 product
+                                # 暂时标记为 B，在 matcher 中进一步处理
+                                structure = "B"
                             else:
                                 structure = "Unknown"
 
-                            image_paths.append((full_path, structure))
-
+                            image_paths.append((full_path, structure, clean_path, merchant))
 
         return image_paths
 

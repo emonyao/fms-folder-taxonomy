@@ -159,72 +159,74 @@ class ImageMatcher:
 
 
     #20250630 update 
-    def match_image(self, image_path: str, structure: str, filename_keywords: List[str]) -> Dict[str, str]:
-        merchant_folder = os.path.basename(os.path.dirname(image_path))
-        fixed_merchant = clean_merchant_folder_name(merchant_folder)
-
+    def match_image(self, image_path: str, structure: str, filename_keywords: List[str], clean_path: str = "", extracted_merchant: str = "") -> Dict[str, str]:
+        # 使用从 scanner 提取的 merchant，而不是从图片的上一级文件夹
+        merchant = extracted_merchant if extracted_merchant else "unknown"
+        
         filename = os.path.basename(image_path)
-        base_name = os.path.splitext(filename)[0].lower()  # 也许仍然需要用于 fallback 赋值
+        base_name = os.path.splitext(filename)[0].lower()
+        
         result = {
             "original_path": image_path,
             "filename": filename,
-            "merchant": fixed_merchant,
+            "merchant": merchant,
             "brand": "",
             "product": "",
             "variation": "",
             "match_source": "FolderMerchant"
         }
 
-        # 结构判断
-        if structure == "A":
-            result["match_source"] = "FlatImage"
-        elif structure == "B":
-            result["product_from_folder"] = os.path.basename(os.path.dirname(image_path))
-            result["match_source"] = "FromProduct"
-        elif structure == "C":
-            result["match_source"] = "FromBrand"
-
-        # 精确 filename 匹配
-        row = self.find_row_by_filename(filename)
-        if row is not None:
-            result["brand"] = row.get("brand", "")
-            result["product"] = row.get("product_name", "")
-            result["match_source"] = "Metadata"
-
-            if "bundle" in filename.lower():
-                result["product"] = base_name
-                result["match_source"] = "BundleFilename"
-        else:
-            # fallback：包含 bundle 的名称
-            if "bundle" in filename.lower():
-                for brand, entries in self.brand_merchant_product_map.items():
-                    if brand in base_name:
-                        result["brand"] = brand
-                        result["product"] = base_name
-                        result["match_source"] = "BundleByBrand"
-                        break
-
-            # fallback：brand + fuzzy product
-            else:
-                best_score = 0
-                best_match_row = None
-                for brand, entries in self.brand_merchant_product_map.items():
-                    if brand in base_name:
-                        for entry in entries:
-                            product_words = entry["product"].lower().split()
-                            score = sum(1 for i in range(min(len(product_words), len(filename_keywords)))
-                                        if product_words[i] == filename_keywords[i])
-                            if score > best_score:
-                                best_score = score
-                                best_match_row = entry
-
-                if best_match_row:
-                    row = best_match_row["row"]
-                    result["brand"] = row["brand"]
-                    result["product"] = base_name
-                    result["match_source"] = "BrandFallback+Product"
+        # 根据 clean_path 进一步判断结构类型
+        if clean_path:
+            # 相对于 Marketing Form (Rcvd) 的路径
+            rel_parts = clean_path.split(os.sep)
+            # 找到 Marketing Form (Rcvd) 的位置
+            marketing_index = -1
+            for i, part in enumerate(rel_parts):
+                if part.lower() == "marketing form (rcvd)":
+                    marketing_index = i
+                    break
+            
+            if marketing_index >= 0:
+                # 提取 merchant 之后的路径部分
+                after_merchant_parts = rel_parts[marketing_index + 2:]  # +2 跳过 Marketing Form (Rcvd) 和 merchant
+                
+                if len(after_merchant_parts) == 1:
+                    # merchant/image.jpg - 结构 A
+                    structure = "A"
+                    result["match_source"] = "FlatImage"
+                elif len(after_merchant_parts) == 2:
+                    # merchant/brand_or_product/image.jpg - 结构 B
+                    folder_name = after_merchant_parts[0]
+                    result["product_from_folder"] = folder_name
+                    result["match_source"] = "FromProduct"
+                    structure = "B"
                 else:
-                    print(f"❌ No suitable fallback row found for: {filename}")
+                    structure = "Unknown"
+
+        # 20250701 新逻辑：只用路径和文件名，不查 metadata
+        if structure in ["A", "B"]:
+            # merchant/image.jpg 或 merchant/brand/image.jpg
+            # 用 merchant + image name（去掉扩展名）命名
+            image_base = os.path.splitext(filename)[0]
+            result["product"] = image_base
+            result["match_source"] = "FromPathImageName"
+        elif structure == "C":
+            # merchant/product/1.jpg
+            # 用 merchant + product 文件夹名命名
+            if clean_path:
+                rel_parts = clean_path.split(os.sep)
+                marketing_index = -1
+                for i, part in enumerate(rel_parts):
+                    if part.lower() == "marketing form (rcvd)":
+                        marketing_index = i
+                        break
+                if marketing_index >= 0:
+                    merchant = rel_parts[marketing_index + 1] if len(rel_parts) > marketing_index + 1 else "unknown"
+                    product = rel_parts[marketing_index + 2] if len(rel_parts) > marketing_index + 2 else "unknown"
+                    result["merchant"] = merchant
+                    result["product"] = product
+                    result["match_source"] = "FromPathMerchantProduct"
 
         # 提取颜色或材质
         if not result["variation"]:
@@ -234,18 +236,20 @@ class ImageMatcher:
         # 替换 merchant name 为 ID
         matched_id = None
         for name, merchant_id in self.merchant_name_to_id.items():
-            if fixed_merchant.lower() in name.lower():
+            if merchant.lower() in name.lower():
                 matched_id = merchant_id
                 break
         if matched_id:
             result["merchant"] = matched_id
-            print(f"🔄 Matched merchant folder '{fixed_merchant}' to ID '{matched_id}'")
+            print(f"🔄 Matched merchant folder '{merchant}' to ID '{matched_id}'")
         else:
-            print(f"⚠️ No MERCHANT ID found for '{fixed_merchant}', keeping original name.")
+            print(f"⚠️ No MERCHANT ID found for '{merchant}', keeping original name.")
 
         # 置信度分级
         score_map = {
             "Metadata": 3,
+            "BrandFromFilename": 2.5,
+            "ProductFromFilename": 2,
             "BrandFallback+Product": 2,
             "BundleFilename": 2,
             "BundleByBrand": 1.5,
@@ -265,24 +269,23 @@ class ImageMatcher:
 
 
 
-    def batch_match(self, image_path_tuples: List[Tuple[str, str]]) -> List[Dict[str, str]]:
+    def batch_match(self, image_path_tuples: List[Tuple[str, str, str, str]]) -> List[Dict[str, str]]:
         """
         Match a list of image paths to metadata.
+        
+        Args:
+            image_path_tuples: List of tuples (full_path, structure, clean_path, merchant)
 
         Returns:
             List[Dict]
         """
-        # 20250627
-        # return [self.match_image(path, structure) for path, structure in image_path_tuples]
         results = []
-        for path,structure in image_path_tuples:
-            # 20250630 promote efficiency
-            # structure = self.get_structure_type(path)
+        for path, structure, clean_path, merchant in image_path_tuples:
             filename = os.path.basename(path)
             base_name = os.path.splitext(filename)[0].lower()
             filename_keywords = base_name.split()
 
-            result = self.match_image(path, structure, filename_keywords)
+            result = self.match_image(path, structure, filename_keywords, clean_path, merchant)
             results.append(result)
         return results
 

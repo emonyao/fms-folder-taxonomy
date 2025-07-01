@@ -3,7 +3,7 @@
 import os
 import csv
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 
 
 class RenameLogger:
@@ -17,21 +17,21 @@ class RenameLogger:
             "backup": False
         }
 
-    def write_image_list(self, image_paths: List[str], output_path: str = "output/image_list.csv") -> None:
+    def write_image_list(self, image_paths: List[Tuple[str, str, str, str]], output_path: str = "output/image_list.csv") -> None:
         """
         Write a list of image paths to a CSV file with filename extraction.
 
         Parameters:
-            image_paths (List[str]): List of full image paths
+            image_paths (List[Tuple]): List of tuples (full_path, structure, clean_path, merchant)
             output_path (str): Path to save CSV
         """
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w", newline='', encoding="utf-8") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(["Index", "Original Path", "Original Filename", "New Path", "New Filename"])
-            for idx, (full_path, structure) in enumerate(image_paths, 1):
+            writer.writerow(["Index", "Original Path", "Original Filename", "Structure", "Clean Path", "Merchant"])
+            for idx, (full_path, structure, clean_path, merchant) in enumerate(image_paths, 1):
                 filename = os.path.basename(full_path)
-                writer.writerow([idx, full_path, filename, "", "", structure])
+                writer.writerow([idx, full_path, filename, structure, clean_path, merchant])
 
     def log_rename(self, old_path: str, new_path: str, status: str = "Renamed", source: str = "Metadata",confidence=None,level=None) -> None:
         """

@@ -79,10 +79,10 @@ class ImageRenamer:
         matched_info = self.matcher.batch_match(image_paths)
 
         for info in matched_info:
-            # 20250627 add
-            if info["match_source"] == "FromBrand":
-                print(f"🟡 Skipping brand image: {info['original_path']}")
-                continue
+            # 移除对 FromBrand 的跳过逻辑，因为现在所有结构都会被处理
+            # if info["match_source"] == "FromBrand":
+            #     print(f"🟡 Skipping brand image: {info['original_path']}")
+            #     continue
 
             old_path = info["original_path"]
             original_dir = os.path.dirname(old_path)
@@ -92,13 +92,17 @@ class ImageRenamer:
             
             merchant = self.slugify(info.get("merchant", "unknown"))
             brand = self.slugify(info.get("brand", "unknown"))
-            # 20250627 using product name from folder first
-            # product = self.slugify(info.get("product", "unknown"))
+            
+            # 优化 product 字段处理逻辑
             if info["match_source"] == "FromProduct" and info.get("product_from_folder"):
+                # 如果是从文件夹提取的产品名，优先使用
                 product = self.slugify(info["product_from_folder"])
+            elif info.get("product"):
+                # 如果有从 metadata 或文件名提取的产品名，使用它
+                product = self.slugify(info["product"])
             else:
-                product = self.slugify(info.get("product", "unknown"))
-
+                # 最后 fallback 到 unknown
+                product = "unknown"
 
             name_key = f"{merchant}_{brand}_{product}"
             counter_key = (name_key, group_key)
@@ -106,11 +110,7 @@ class ImageRenamer:
             count = variation_counters.get(counter_key, 0) + 1
             variation_counters[counter_key] = count
 
-            # 20250619 change variation logic
-            # if group_key in ["PO", "SB"]:
-            #     info["variation"] = f"_{group_key.lower()}_{count}"
-            # else:
-            #     info["variation"] = str(count)
+            # variation 逻辑保持不变
             variation_parts = []
             
             # 颜色提取，防止重复加入
@@ -132,7 +132,6 @@ class ImageRenamer:
                 # keep original filename
                 original_base = os.path.splitext(info["filename"])[0]
                 info["product"] = original_base  # keep original filename as product name
-
 
             new_name = self.construct_filename(info)
             new_name = self.resolve_conflict(original_dir, new_name)
