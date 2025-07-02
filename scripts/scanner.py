@@ -13,12 +13,12 @@ class ImageScanner:
  
     def remove_images_folders(self, path: str) -> str:
         """
-        从路径中移除所有的 "Images" 和 "USE THIS" 文件夹，并去除连续重复的文件夹名
+        从路径中移除所有的 "Images"、"USE THIS" 和 "Pre Order & Starbuy" 文件夹，并去除连续重复的文件夹名
         """
         norm_path = path.replace('/', os.sep).replace('\\', os.sep)
         parts = norm_path.split(os.sep)
         # 先移除目标文件夹
-        filtered_parts = [part for part in parts if part.lower() not in ("images", "use this")]
+        filtered_parts = [part for part in parts if part.lower() not in ("images", "use this", "pre order & starbuy")]
         # 再去除连续重复的文件夹名
         deduped_parts = []
         for part in filtered_parts:

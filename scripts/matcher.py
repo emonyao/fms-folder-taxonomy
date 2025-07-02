@@ -199,8 +199,8 @@ class ImageMatcher:
             if merchant != "unknown":
                 # 提取 merchant 之后的路径部分
                 after_merchant_parts = parts[parts.index(merchant) + 1:]  # +1 跳过 merchant
-                # 跳过所有包含 'images' 或 'use this' 的文件夹和纯数字文件夹
-                after_merchant_parts = [p for p in after_merchant_parts if 'images' not in p.lower() and 'use this' not in p.lower() and not p.isdigit()]
+                # 跳过所有包含 'images'、'use this' 或 'pre order & starbuy' 的文件夹和纯数字文件夹
+                after_merchant_parts = [p for p in after_merchant_parts if 'images' not in p.lower() and 'use this' not in p.lower() and 'pre order & starbuy' not in p.lower() and not p.isdigit()]
                 # 去除实际重复但写法不同的文件夹名
                 after_merchant_parts = self.dedup_similar_folders(after_merchant_parts)
                 print(f"[DEBUG] merchant: {merchant}, after_merchant_parts: {after_merchant_parts}, filename: {filename}")
@@ -238,6 +238,19 @@ class ImageMatcher:
                     result["match_source"] = "FromPathBrandProductVariation"
                     print(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                     self.debug_log(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
+                elif len(after_merchant_parts) == 4:
+                    # merchant/brand/product/variation_part1/variation_part2.jpg - 结构D
+                    brand_folder = after_merchant_parts[0]
+                    product_folder = after_merchant_parts[1]
+                    variation_part1 = after_merchant_parts[2]
+                    variation_part2 = os.path.splitext(after_merchant_parts[3])[0]
+                    variation_name = f"{variation_part1}_{variation_part2}"
+                    result["brand"] = brand_folder
+                    result["product"] = product_folder
+                    result["variation"] = variation_name
+                    result["match_source"] = "FromPathBrandProductVariationParts"
+                    print(f"[DEBUG] 结构D: brand={brand_folder}, product={product_folder}, variation={variation_name}")
+                    self.debug_log(f"[DEBUG] 结构D: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                 else:
                     structure = "Unknown"
                     print(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
@@ -249,16 +262,45 @@ class ImageMatcher:
         self.debug_log(f"[DEBUG] 清理后 merchant: {cleaned_merchant}")
         result["merchant"] = cleaned_merchant  # 先设置为清理后的名称
         
-        # 替换 merchant name 为 ID
+        # 替换 merchant name 为 ID - 简化的匹配逻辑
         matched_id = None
+        matched_name = None
+        best_match_score = 0
+        
         for name, merchant_id in self.merchant_name_to_id.items():
-            if cleaned_merchant.lower() in name.lower() or name.lower() in cleaned_merchant.lower():
+            name_lower = name.lower()
+            
+            # 计算匹配分数
+            match_score = 0
+            
+            # 1. 完全匹配（最高优先级）
+            if cleaned_merchant.lower() == name_lower:
+                match_score = 100
+                print(f"[DEBUG] 完全匹配: '{cleaned_merchant}' == '{name}'")
+                self.debug_log(f"[DEBUG] 完全匹配: '{cleaned_merchant}' == '{name}'")
+            # 2. 包含匹配：filepath中的merchant包含metadata中的merchant
+            elif name_lower in cleaned_merchant.lower():
+                match_score = 80
+                print(f"[DEBUG] 包含匹配: '{name}' 包含在 '{cleaned_merchant}' 中")
+                self.debug_log(f"[DEBUG] 包含匹配: '{name}' 包含在 '{cleaned_merchant}' 中")
+            # 3. 被包含匹配：metadata中的merchant包含filepath中的merchant
+            elif cleaned_merchant.lower() in name_lower:
+                match_score = 60
+                print(f"[DEBUG] 被包含匹配: '{cleaned_merchant}' 包含在 '{name}' 中")
+                self.debug_log(f"[DEBUG] 被包含匹配: '{cleaned_merchant}' 包含在 '{name}' 中")
+            
+            # 更新最佳匹配
+            if match_score > best_match_score:
+                best_match_score = match_score
                 matched_id = merchant_id
-                break
-        if matched_id:
+                matched_name = name
+                print(f"[DEBUG] 新最佳匹配: '{name}' (ID: {merchant_id}) 分数: {match_score}")
+                self.debug_log(f"[DEBUG] 新最佳匹配: '{name}' (ID: {merchant_id}) 分数: {match_score}")
+        
+        if matched_id and best_match_score > 0:  # 只要有匹配就使用
             result["merchant"] = matched_id
-            print(f"🔄 Matched merchant folder '{cleaned_merchant}' to ID '{matched_id}'")
-            self.debug_log(f"🔄 Matched merchant folder '{cleaned_merchant}' to ID '{matched_id}'")
+            print(f"🔄 Matched merchant folder '{cleaned_merchant}' to '{matched_name}' (ID: '{matched_id}') with score {best_match_score}")
+            self.debug_log(f"🔄 Matched merchant folder '{cleaned_merchant}' to '{matched_name}' (ID: '{matched_id}') with score {best_match_score}")
         else:
             print(f"⚠️ No MERCHANT ID found for '{cleaned_merchant}', keeping cleaned name.")
             self.debug_log(f"⚠️ No MERCHANT ID found for '{cleaned_merchant}', keeping cleaned name.")
@@ -274,6 +316,7 @@ class ImageMatcher:
         # 结构分
         structure_score_map = {
             "FromPathBrandProductVariation": 2.0,
+            "FromPathBrandProductVariationParts": 2.2,  # 结构D：更详细的variation信息
             "FromPathBrandImage": 1.5,
             "FromPathProduct": 1.2,
             "FlatImage": 1.0,
