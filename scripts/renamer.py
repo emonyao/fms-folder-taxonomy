@@ -79,7 +79,8 @@ class ImageRenamer:
         variation = self.clean_text_keep_space(info_dict.get("variation", ""))
         original_filename = info_dict.get("filename", "")
 
-        parts = [merchant]
+        # 去掉merchant，只使用brand, product, variation
+        parts = []
         if brand and brand != merchant:
             parts.append(brand)
         if product:
@@ -87,14 +88,13 @@ class ImageRenamer:
         if variation:
             parts.append(variation)
 
-        # 检查除merchant外的部分是否全为数字
-        non_merchant = parts[1:]
-        non_merchant_str = "_".join(non_merchant)
-        if non_merchant and non_merchant_str.replace('_', '').isdigit():
-            # 只包含数字，返回 merchant+原文件名
+        # 检查所有部分是否全为数字
+        parts_str = "_".join(parts)
+        if parts and parts_str.replace('_', '').isdigit():
+            # 只包含数字，返回原文件名（不带merchant）
             ext = os.path.splitext(original_filename)[1] or ".jpg"
             base = os.path.splitext(original_filename)[0]
-            return f"{merchant}_{base}{ext}"
+            return f"{base}{ext}"
 
         base_name = "_".join(filter(None, parts))
         # 最后去除内容等价的重复子串
