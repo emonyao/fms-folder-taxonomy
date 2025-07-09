@@ -274,7 +274,7 @@ class ImageMatcher:
                     print(f"[DEBUG] 结构B folder_name: {folder_name}")
                     self.debug_log(f"[DEBUG] 结构B folder_name: {folder_name}")
                     
-                    result["brand"] = folder_name
+                    result["brand"] = self.clean_part(folder_name)
                     raw_product = os.path.splitext(filename)[0]
                     result["product"] = self.clean_part(raw_product)
                     result["match_source"] = "FromPathBrandImage"
@@ -288,9 +288,9 @@ class ImageMatcher:
                     product_folder = after_merchant_parts[1]
                     variation_file = after_merchant_parts[2]
                     variation_name = os.path.splitext(variation_file)[0]
-                    result["brand"] = brand_folder
+                    result["brand"] = self.clean_part(brand_folder)
                     result["product"] = self.clean_part(product_folder)
-                    result["variation"] = variation_name
+                    result["variation"] = self.clean_part(variation_name)
                     result["match_source"] = "FromPathBrandProductVariation"
                     print(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                     self.debug_log(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
@@ -301,9 +301,9 @@ class ImageMatcher:
                     variation_part1 = after_merchant_parts[2]
                     variation_part2 = os.path.splitext(after_merchant_parts[3])[0]
                     variation_name = f"{variation_part1}_{variation_part2}"
-                    result["brand"] = brand_folder
+                    result["brand"] = self.clean_part(brand_folder)
                     result["product"] = self.clean_part(product_folder)
-                    result["variation"] = variation_name
+                    result["variation"] = self.clean_part(variation_name)
                     result["match_source"] = "FromPathBrandProductVariationParts"
                     print(f"[DEBUG] 结构D: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                     self.debug_log(f"[DEBUG] 结构D: brand={brand_folder}, product={product_folder}, variation={variation_name}")
@@ -313,7 +313,7 @@ class ImageMatcher:
                     # print(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
                     # self.debug_log(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
                     brand = after_merchant_parts[0]
-                    result["brand"] = brand
+                    result["brand"] = self.clean_part(brand)
                     raw_product = os.path.splitext(filename)[0]
                     result["product"] = self.clean_part(raw_product)
                     result["match_source"] = "FromDeepBrandStructure"
@@ -502,6 +502,9 @@ class ImageMatcher:
     def clean_part(self, part: str) -> str:
         # 将所有连接符统一成空格，方便拆词
         part = re.sub(r'[-_]+', ' ', part)
+
+        # 移除开头的数字.（例如 10.、5.）
+        part = re.sub(r'^\d+\.\s*', '', part)
 
         # 分词
         tokens = part.lower().split()
