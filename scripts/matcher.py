@@ -164,6 +164,12 @@ class ImageMatcher:
     #20250630 update 
     def match_image(self, image_path: str, structure: str, filename_keywords: List[str], clean_path: str = "", extracted_merchant: str = "") -> Dict[str, str]:
         # 使用从 scanner 提取的 merchant，而不是从图片的上一级文件夹
+        self.debug_log(f"3. match_image -  image_path {image_path}")
+        self.debug_log(f"3. match_image -  structure {structure}")
+        self.debug_log(f"3. match_image -  filename_keywords {filename_keywords}")
+        self.debug_log(f"3. match_image -  clean_path {clean_path}")
+        self.debug_log(f"3. match_image -  extracted_merchant {extracted_merchant}")
+
         merchant = extracted_merchant if extracted_merchant else "unknown"
         
         filename = os.path.basename(image_path)
@@ -186,22 +192,70 @@ class ImageMatcher:
             parts = norm_path.split(os.sep)
             print(f"[DEBUG] 路径分割 parts: {parts}")
             self.debug_log(f"[DEBUG] 路径分割 parts: {parts}")
+
+            # 20250709 delete
             # 找到 "marketing form (rcvd)" 的索引
-            try:
-                idx = [p.lower() for p in parts].index("marketing form (rcvd)")
-                merchant = parts[idx + 1] if len(parts) > idx + 1 else "unknown"
-                print(f"[DEBUG] 找到 merchant: {merchant} (parts[{idx + 1}])")
-                self.debug_log(f"[DEBUG] 找到 merchant: {merchant} (parts[{idx + 1}])")
-            except ValueError:
-                merchant = "unknown"
-                print(f"[DEBUG] 未找到 'marketing form (rcvd)'，merchant 设为 unknown")
-                self.debug_log(f"[DEBUG] 未找到 'marketing form (rcvd)'，merchant 设为 unknown")
+            # try:
+            #     idx = [p.lower() for p in parts].index("marketing form (rcvd)")
+            #     merchant = parts[idx + 1] if len(parts) > idx + 1 else "unknown"
+            #     print(f"[DEBUG] 找到 merchant: {merchant} (parts[{idx + 1}])")
+            #     self.debug_log(f"[DEBUG] 找到 merchant: {merchant} (parts[{idx + 1}])")
+            # except ValueError:
+            #     merchant = "unknown"
+            #     print(f"[DEBUG] 未找到 'marketing form (rcvd)'，merchant 设为 unknown")
+            #     self.debug_log(f"[DEBUG] 未找到 'marketing form (rcvd)'，merchant 设为 unknown")
             
             if merchant != "unknown":
                 # 提取 merchant 之后的路径部分
                 after_merchant_parts = parts[parts.index(merchant) + 1:]  # +1 跳过 merchant
                 # 跳过所有包含 'images'、'use this' 或 'pre order & starbuy' 的文件夹和纯数字文件夹
-                after_merchant_parts = [p for p in after_merchant_parts if 'images' not in p.lower() and 'use this' not in p.lower() and 'pre order & starbuy' not in p.lower() and not p.isdigit()]
+                # after_merchant_parts = [p for p in after_merchant_parts if 'images' not in p.lower() and 'use this' not in p.lower() and 'pre order & starbuy' not in p.lower() and not p.isdigit()]
+                mons = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+                # after_merchant_parts = [p for i, p in enumerate(after_merchant_parts)
+                # if (
+                #     i != len(after_merchant_parts)-1
+                #     and p.strip()
+                #     and p.lower() not in 'images' 
+                #     and p.lower() not in 'image' 
+                #     and 'use this' not in p.lower() 
+                #     and 'marketing' not in p.lower() 
+                #     and 'mktg' not in p.lower()
+                #     and 'pre order' not in p.lower() 
+                #     and 'starbuy' not in p.lower() 
+                #     and 'starbuys' not in p.lower()
+                #     and 'deals' not in p.lower()
+                #     and p.lower() not in mons 
+                #     and not p.isdigit()
+                #     and not re.match(r'^\$\d+', p)               # 忽略以 $ 开头 + 数字 的字段
+                #     and not re.match(r'^\d+\s*[x×]\s*\d+$', p)    # 忽略 100x200 / 100×200 的字段
+                #     ) or i == len(after_merchant_parts)-1
+                # ]
+                after_merchant_parts = [
+                    p for i, p in enumerate(after_merchant_parts)
+                    if (
+                        i == len(after_merchant_parts) - 1  # 保留最后一个文件名
+                        or (
+                            p.strip()
+                            and not any(keyword in p.lower() for keyword in [
+                                'images', 'image', 'use this', 'marketing', 'mktg',
+                                'pre order', 'starbuy', 'starbuys', 'deals'
+                            ])
+                            and not any(mon in p.lower() for mon in ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
+                                                                    'jul', 'aug', 'sep', 'oct', 'nov', 'dec'])
+                            and not p.isdigit()
+                            and not any(re.match(pattern, p) for pattern in [
+                                r'^\$\d+',              # $ 开头的数字
+                                r'^\d+\s*[x×]\s*\d+$'   # 数字x数字 格式
+                            ])
+                        )
+                    )
+                ]
+
+
+                # 20250709 add
+                # 对每一个part做处理
+                after_merchant_parts = [self.clean_part(p) for p in after_merchant_parts]
+
                 # 去除实际重复但写法不同的文件夹名
                 after_merchant_parts = self.dedup_similar_folders(after_merchant_parts)
                 print(f"[DEBUG] merchant: {merchant}, after_merchant_parts: {after_merchant_parts}, filename: {filename}")
@@ -211,7 +265,7 @@ class ImageMatcher:
                     structure = "A"
                     result["match_source"] = "FlatImage"
                     image_base = os.path.splitext(filename)[0]
-                    result["product"] = image_base
+                    result["product"] = self.clean_part(image_base)
                     print(f"[DEBUG] 结构A赋值: product={result['product']}")
                     self.debug_log(f"[DEBUG] 结构A赋值: product={result['product']}")
                 elif len(after_merchant_parts) == 2:
@@ -221,7 +275,8 @@ class ImageMatcher:
                     self.debug_log(f"[DEBUG] 结构B folder_name: {folder_name}")
                     
                     result["brand"] = folder_name
-                    result["product"] = os.path.splitext(filename)[0]
+                    raw_product = os.path.splitext(filename)[0]
+                    result["product"] = self.clean_part(raw_product)
                     result["match_source"] = "FromPathBrandImage"
                     print(f"[DEBUG] 结构B品牌: brand={result['brand']}, product={result['product']}")
                     self.debug_log(f"[DEBUG] 结构B品牌: brand={result['brand']}, product={result['product']}")
@@ -234,7 +289,7 @@ class ImageMatcher:
                     variation_file = after_merchant_parts[2]
                     variation_name = os.path.splitext(variation_file)[0]
                     result["brand"] = brand_folder
-                    result["product"] = product_folder
+                    result["product"] = self.clean_part(product_folder)
                     result["variation"] = variation_name
                     result["match_source"] = "FromPathBrandProductVariation"
                     print(f"[DEBUG] 结构C: brand={brand_folder}, product={product_folder}, variation={variation_name}")
@@ -247,15 +302,25 @@ class ImageMatcher:
                     variation_part2 = os.path.splitext(after_merchant_parts[3])[0]
                     variation_name = f"{variation_part1}_{variation_part2}"
                     result["brand"] = brand_folder
-                    result["product"] = product_folder
+                    result["product"] = self.clean_part(product_folder)
                     result["variation"] = variation_name
                     result["match_source"] = "FromPathBrandProductVariationParts"
                     print(f"[DEBUG] 结构D: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                     self.debug_log(f"[DEBUG] 结构D: brand={brand_folder}, product={product_folder}, variation={variation_name}")
                 else:
-                    structure = "Unknown"
-                    print(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
-                    self.debug_log(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
+                    # 20250709 update
+                    # structure = "Unknown"
+                    # print(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
+                    # self.debug_log(f"[DEBUG] 结构未知: after_merchant_parts={after_merchant_parts}")
+                    brand = after_merchant_parts[0]
+                    result["brand"] = brand
+                    raw_product = os.path.splitext(filename)[0]
+                    result["product"] = self.clean_part(raw_product)
+                    result["match_source"] = "FromDeepBrandStructure"
+                    structure = "Special"
+                    print(f"[DEBUG] 特殊结构: brand={brand}, product={result['product']}, full after_merchant_parts={after_merchant_parts}")
+                    self.debug_log(f"[DEBUG] 特殊结构: brand={brand}, product={result['product']}, full after_merchant_parts={after_merchant_parts}")
+
 
         # 20250701 清理 merchant name 并尝试匹配 ID
         cleaned_merchant = clean_merchant_folder_name(merchant)
@@ -371,6 +436,11 @@ class ImageMatcher:
 
             result = self.match_image(path, structure, filename_keywords, clean_path, merchant)
             results.append(result)
+            self.debug_log(f"2. batch_match - fullpath {path}...")
+            self.debug_log(f"2. batch_match - structure {structure}...")
+            self.debug_log(f"2. batch_match - clean_path {clean_path}...")
+            self.debug_log(f"2. batch_match - merchant {merchant}...")
+            self.debug_log(f"2. batch_match - results {result}...")
         return results
 
     def get_structure_type(self, image_path: str) -> str:
@@ -416,3 +486,34 @@ class ImageMatcher:
     def debug_log(self, msg: str):
         with open(self.debug_file_path, "a", encoding="utf-8") as f:
             f.write(msg + "\n")
+
+    # def clean_part(self, part: str) -> str:
+    #     # 移除常见后缀标志（忽略大小写）
+    #     part = re.sub(r'\b(cs|cc|hr)\b', '', part, flags=re.IGNORECASE)
+        
+    #     # 移除形如 100x200 或 300×400 的部分
+    #     part = re.sub(r'\d+\s*[x×]\s*\d+', '', part)
+
+    #     # 去掉多余的下划线、连字符、空格
+    #     part = re.sub(r'[-_]+', ' ', part)
+    #     part = part.strip()
+
+    #     return part
+    def clean_part(self, part: str) -> str:
+        # 将所有连接符统一成空格，方便拆词
+        part = re.sub(r'[-_]+', ' ', part)
+
+        # 分词
+        tokens = part.lower().split()
+
+        # 去除不需要的部分
+        exclude = {"cs", "cc", "hr"}
+        cleaned_tokens = [
+            token for token in tokens
+            if token not in exclude
+            and not re.match(r'^\$\d+', token)
+            and not re.match(r'^\d+\s*[x×]\s*\d+$', token)
+        ]
+
+        return '_'.join(cleaned_tokens)
+

@@ -10,7 +10,12 @@ class ImageScanner:
         self.config = load_config(config_path)
         self.input_folder: str = self.config.get("input_folder", "images/")
         self.extensions: Tuple[str] = (".jpg", ".jpeg", ".png")
- 
+        self.logger = RenameLogger()
+
+    def debug_log(self, msg: str):
+        with open("output/renamer_debug_log.txt", "a", encoding="utf-8") as f:
+            f.write(str(msg) + "\n")
+            
     def remove_images_folders(self, path: str) -> str:
         """
         从路径中移除所有的 "Images"、"USE THIS" 和 "Pre Order & Starbuy" 文件夹，并去除连续重复的文件夹名
@@ -44,13 +49,29 @@ class ImageScanner:
                     for f in files:
                         if f.lower().endswith(self.extensions):
                             full_path = os.path.join(root, f)
+
+                            # 20250709 add
+                            # 找到 'Marketing Form (Rcvd)' 的索引，并截取之后的部分
+                            normalized_path = os.path.normpath(full_path)  # 标准化路径
+                            path_parts = normalized_path.split(os.sep)
+
+                            # 定位 'Marketing Form (Rcvd)' 并从其下一级开始
+                            relative_parts = []
+                            for i, part in enumerate(path_parts):
+                                if part.lower() == "marketing form (rcvd)":
+                                    relative_parts = path_parts[i + 1:]
+                                    break
                             
+                            # 20250709 change
                             # 移除所有 "Images" 文件夹后的路径
-                            clean_path = self.remove_images_folders(full_path)
+                            # clean_path = self.remove_images_folders(full_path)
+                            clean_path = self.remove_images_folders(os.path.join(*relative_parts))
                             
+                            # 20250709 change
                             # 相对于 Marketing Form (Rcvd) 的路径
-                            rel_to_marketing = os.path.relpath(clean_path, dirpath)
-                            parts = rel_to_marketing.split(os.sep)
+                            # rel_to_marketing = os.path.relpath(clean_path, dirpath)
+                            # parts = rel_to_marketing.split(os.sep)
+                            parts = clean_path.split(os.sep)
                             
                             # 提取 merchant（第一个文件夹）
                             merchant = parts[0] if len(parts) > 0 else "unknown"
@@ -68,7 +89,11 @@ class ImageScanner:
                                 structure = "B"
                             else:
                                 structure = "Unknown"
-
+                            self.debug_log(f"[1. CLEAN PATH AND PARTS - merchant]: {merchant}")
+                            self.debug_log(f"[1. CLEAN PATH AND PARTS - remaining_parts]: {remaining_parts}")
+                            self.debug_log(f"[1. CLEAN PATH AND PARTS - structure]: {structure}")
+                            self.debug_log(f"[1. CLEAN PATH AND PARTS - fullpath]: {full_path}")
+                            self.debug_log(f"[1. CLEAN PATH AND PARTS - cleanpath]: {clean_path}")
                             image_paths.append((full_path, structure, clean_path, merchant))
 
         return image_paths
