@@ -20,7 +20,7 @@ class ImageRenamer:
         self.output_dir = self.config["output_renamed"]
         os.makedirs(self.output_dir, exist_ok=True)
 
-        self.logger = RenameLogger()
+        self.logger = RenameLogger(self.config)
         # self.scanner = ImageScanner(self.config)
         self.scanner = ImageScanner(config_path)
 

@@ -7,14 +7,20 @@ from typing import List, Tuple
 
 
 class RenameLogger:
-    def __init__(self):
+    def __init__(self, config=None):
+        from datetime import datetime
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        # self.backup_log_path = f"output/rename_log_{self.timestamp}.csv"
-        # self.main_log_path = "output/rename_log.csv"
-        self.backup_log_path = r"Z:\Baby Fairs 2025\output\rename_log_" + self.timestamp + ".csv"
-        self.main_log_path = r"Z:\Baby Fairs 2025\output\rename_log.csv"
-
-
+        if config is None:
+            # fallback 路径
+            log_dir = "output"
+            main_log = os.path.join(log_dir, "rename_log.csv")
+            backup_log = os.path.join(log_dir, f"rename_log_{self.timestamp}.csv")
+        else:
+            log_dir = os.path.dirname(config.get("log_file", "output/rename_log.csv"))
+            main_log = config.get("log_file", "output/rename_log.csv")
+            backup_log = os.path.join(log_dir, f"rename_log_{self.timestamp}.csv")
+        self.main_log_path = main_log
+        self.backup_log_path = backup_log
         self.header_written = {
             "main": os.path.exists(self.main_log_path) and os.stat(self.main_log_path).st_size > 0,
             "backup": False

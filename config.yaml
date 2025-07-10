@@ -1,30 +1,14 @@
-# config.yaml
-
-# Input
-# input_folder: images/                     # 原始图像目录
-input_folder: Z:\Baby Fairs 2025
-# metadata_file: data/image_metadata.csv   # 元数据表
-metadata_file: data/metadata.json
-# product_lookup_file: data/product_lookup.csv  # 品牌和产品名映射（可选）
-# merchant_mapping_file: data/merchant_mapping.csv  # 商户 ID ↔ 名称映射（可选）
-
-# Output folders
-output_renamed: output/renamed/          # 标准化命名后图像输出目录
-output_dnu: output/dnu/                  # 未发布图像输出目录
-output_review: output/review/            # 无 metadata 图像输出目录
-
-# Logging
-# log_file: output/rename_log.csv
-log_file: Z:\\Baby Fairs 2025\\output\\rename_log.csv
-
-# AI fallback settings
-use_ai: true                             # 是否启用 AI fallback
-ai_confidence_threshold: 0.8             # 置信度阈值
-ai_source: deepseek                      # 模型类型（deepseek, blip 等）
-
-# Versioning
-default_version: 1                       # 起始版本号
-version_format: "_v{n}"                  # 命名中的版本号格式
-
-# Published flag values
-publish_values: ["yes", "y", "true"]     # 视为已发布的合法值（不区分大小写）
+ai_confidence_threshold: 0.8
+ai_source: blip
+default_version: 1
+input_folder: C:/yfh/fms-folder-taxonomy/images
+log_file: C:/yfh/fms-folder-taxonomy/output/rename_log.csv
+output_dnu: output/dnu/
+output_renamed: C:/yfh/fms-folder-taxonomy/output
+output_review: output/review/
+publish_values:
+- 'yes'
+- y
+- 'true'
+use_ai: false
+version_format: _v{n}
