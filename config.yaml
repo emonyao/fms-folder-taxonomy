@@ -1,7 +1,8 @@
 # config.yaml
 
 # Input
-input_folder: images/                     # 原始图像目录
+# input_folder: images/                     # 原始图像目录
+input_folder: Z:\Baby Fairs 2025
 # metadata_file: data/image_metadata.csv   # 元数据表
 metadata_file: data/metadata.json
 # product_lookup_file: data/product_lookup.csv  # 品牌和产品名映射（可选）
@@ -13,7 +14,8 @@ output_dnu: output/dnu/                  # 未发布图像输出目录
 output_review: output/review/            # 无 metadata 图像输出目录
 
 # Logging
-log_file: output/rename_log.csv
+# log_file: output/rename_log.csv
+log_file: Z:\\Baby Fairs 2025\\output\\rename_log.csv
 
 # AI fallback settings
 use_ai: true                             # 是否启用 AI fallback

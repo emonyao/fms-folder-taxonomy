@@ -505,6 +505,7 @@ class ImageMatcher:
 
         # 移除开头的数字.（例如 10.、5.）
         part = re.sub(r'^\d+\.\s*', '', part)
+        part = re.sub(r'^\d+\)\s*', '', part)
 
         # 分词
         tokens = part.lower().split()

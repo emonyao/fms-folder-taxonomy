@@ -9,15 +9,18 @@ from typing import List, Tuple
 class RenameLogger:
     def __init__(self):
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        self.backup_log_path = f"output/rename_log_{self.timestamp}.csv"
-        self.main_log_path = "output/rename_log.csv"
+        # self.backup_log_path = f"output/rename_log_{self.timestamp}.csv"
+        # self.main_log_path = "output/rename_log.csv"
+        self.backup_log_path = r"Z:\Baby Fairs 2025\output\rename_log_" + self.timestamp + ".csv"
+        self.main_log_path = r"Z:\Baby Fairs 2025\output\rename_log.csv"
+
 
         self.header_written = {
             "main": os.path.exists(self.main_log_path) and os.stat(self.main_log_path).st_size > 0,
             "backup": False
         }
 
-    def write_image_list(self, image_paths: List[Tuple[str, str, str, str]], output_path: str = "output/image_list.csv") -> None:
+    def write_image_list(self, image_paths: List[Tuple[str, str, str, str]], output_path: str = "Z:\Baby Fairs 2025\output\image_list.csv") -> None:
         """
         Write a list of image paths to a CSV file with filename extraction.
 
