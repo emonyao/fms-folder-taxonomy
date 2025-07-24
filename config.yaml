@@ -1,10 +1,10 @@
 ai_confidence_threshold: 0.8
 ai_source: blip
 default_version: 1
-input_folder: C:/yfh/fms-folder-taxonomy/images
-log_file: C:/yfh/fms-folder-taxonomy/output/rename_log.csv
+input_folder: Z:/Baby Fairs 2024
+log_file: Z:/Baby Fairs 2024/output/rename_log.csv
 output_dnu: output/dnu/
-output_renamed: C:/yfh/fms-folder-taxonomy/output
+output_renamed: Z:/Baby Fairs 2024/output
 output_review: output/review/
 publish_values:
 - 'yes'

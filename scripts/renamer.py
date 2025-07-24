@@ -61,7 +61,7 @@ class ImageRenamer:
             is_similar = False
             for s in seen:
                 ratio = SequenceMatcher(None, key, s).ratio()
-                if ratio > 0.8:  # 相似度高于80%就认为重复
+                if ratio > 0.8:  # If similarity is above 80%, consider as duplicate
                     is_similar = True
                     break
 
@@ -79,7 +79,7 @@ class ImageRenamer:
         variation = self.clean_text_keep_space(info_dict.get("variation", ""))
         original_filename = info_dict.get("filename", "")
 
-        # 去掉merchant，只使用brand, product, variation
+        # Remove merchant, only use brand, product, variation
         parts = []
         if brand and brand != merchant:
             parts.append(brand)
@@ -88,20 +88,20 @@ class ImageRenamer:
         if variation:
             parts.append(variation)
 
-        # 检查所有部分是否全为数字
+        # Check if all parts are digits
         parts_str = "_".join(parts)
         if parts and parts_str.replace('_', '').isdigit():
-            # 只包含数字，返回原文件名（不带merchant）
+            # Only contains digits, return original filename (without merchant)
             ext = os.path.splitext(original_filename)[1] or ".jpg"
             base = os.path.splitext(original_filename)[0]
             return f"{base}{ext}"
 
         base_name = "_".join(filter(None, parts))
-        # 最后去除内容等价的重复子串
+        # Finally, remove duplicate substrings with equivalent content
         base_name = self.dedup_similar_substrings(base_name)
         
         if version > 1:
-            # 只在 variation 已有内容时，追加编号
+            # Only append number when variation already has content
             if variation:
                 base_name += f"_{version}"
             else:
@@ -135,7 +135,7 @@ class ImageRenamer:
             group_key = parent_folder if parent_folder in ["PO", "SB"] else ""
             merchant = self.slugify(info.get("merchant", "unknown"))
             brand = self.slugify(info.get("brand", "unknown"))
-            # 优化 product 字段处理逻辑
+            # Optimize product field handling logic
             if info["match_source"] == "FromProduct" and info.get("product_from_folder"):
                 product = self.slugify(info["product_from_folder"])
             elif info.get("product"):
@@ -144,7 +144,7 @@ class ImageRenamer:
                 product = "unknown"
             variation = self.slugify(info.get("variation", ""))
 
-            # 只有 merchant, brand, product, variation（且 variation 不为空）都相等时才计数
+            # Only when merchant, brand, product, variation (and variation is not empty) are all equal, count
             if variation:
                 name_key = f"{merchant}_{brand}_{product}_{variation}"
             else:
@@ -154,7 +154,7 @@ class ImageRenamer:
             count = variation_counters.get(counter_key, 0) + 1
             variation_counters[counter_key] = count
 
-            # 只在 variation 为空时才自动生成
+            # Only auto-generate when variation is empty
             if not info.get("variation"):
                 variation_parts = []
                 color_or_material = extract_color_phrase(info["filename"])
@@ -166,13 +166,13 @@ class ImageRenamer:
                 if group_key in ["PO", "SB"]:
                     variation_parts.append(group_key.lower())
                 info["variation"] = "_".join(variation_parts)
-            # 否则保持 matcher 赋值的 variation，不覆盖
+            # Otherwise, keep the variation assigned by matcher, do not overwrite
 
-            # 只有当 variation 不为空且发生重名时，才在 variation 后追加编号
+            # Only when variation is not empty and there is a name conflict, append number after variation
             version = 1
             if variation and count > 1:
                 info["variation"] = f"{variation}_{count}"
-                version = 1  # 不再在 construct_filename 里加 _vN
+                version = 1  # No longer add _vN in construct_filename
             else:
                 version = count if count > 1 else 1
 

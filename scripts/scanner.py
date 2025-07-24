@@ -18,13 +18,13 @@ class ImageScanner:
             
     def remove_images_folders(self, path: str) -> str:
         """
-        从路径中移除所有的 "Images"、"USE THIS" 和 "Pre Order & Starbuy" 文件夹，并去除连续重复的文件夹名
+        Remove all "Images", "USE THIS" and "Pre Order & Starbuy" folders from the path, and remove consecutive duplicate folder names
         """
         norm_path = path.replace('/', os.sep).replace('\\', os.sep)
         parts = norm_path.split(os.sep)
-        # 先移除目标文件夹
+        # First remove target folders
         filtered_parts = [part for part in parts if part.lower() not in ("images", "use this", "pre order & starbuy")]
-        # 再去除连续重复的文件夹名
+        # Then remove consecutive duplicate folder names
         deduped_parts = []
         for part in filtered_parts:
             if not deduped_parts or deduped_parts[-1].lower() != part.lower():
@@ -41,21 +41,21 @@ class ImageScanner:
 
         for dirpath, dirnames, filenames in os.walk(self.input_folder):
             if os.path.basename(dirpath).lower() != "marketing form (rcvd)":
-                continue  # 只处理名为 'Marketing Form (Rcvd)' 的文件夹
+                continue  # Only process folders named 'Marketing Form (Rcvd)'
 
-            for merchant_folder in dirnames:  # 进入每个 merchant 文件夹
+            for merchant_folder in dirnames:  # Enter each merchant folder
                 merchant_path = os.path.join(dirpath, merchant_folder)
-                for root, _, files in os.walk(merchant_path):  # 递归扫描每个 merchant 文件夹下的图像
+                for root, _, files in os.walk(merchant_path):  # Recursively scan images under each merchant folder
                     for f in files:
                         if f.lower().endswith(self.extensions):
                             full_path = os.path.join(root, f)
 
                             # 20250709 add
-                            # 找到 'Marketing Form (Rcvd)' 的索引，并截取之后的部分
-                            normalized_path = os.path.normpath(full_path)  # 标准化路径
+                            # Find the index of 'Marketing Form (Rcvd)' and take the part after it
+                            normalized_path = os.path.normpath(full_path)  # Normalize path
                             path_parts = normalized_path.split(os.sep)
 
-                            # 定位 'Marketing Form (Rcvd)' 并从其下一级开始
+                            # Locate 'Marketing Form (Rcvd)' and start from its next level
                             relative_parts = []
                             for i, part in enumerate(path_parts):
                                 if part.lower() == "marketing form (rcvd)":
@@ -63,29 +63,29 @@ class ImageScanner:
                                     break
                             
                             # 20250709 change
-                            # 移除所有 "Images" 文件夹后的路径
+                            # Remove all "Images" folders from the path
                             # clean_path = self.remove_images_folders(full_path)
                             clean_path = self.remove_images_folders(os.path.join(*relative_parts))
                             
                             # 20250709 change
-                            # 相对于 Marketing Form (Rcvd) 的路径
+                            # Path relative to Marketing Form (Rcvd)
                             # rel_to_marketing = os.path.relpath(clean_path, dirpath)
                             # parts = rel_to_marketing.split(os.sep)
                             parts = clean_path.split(os.sep)
                             
-                            # 提取 merchant（第一个文件夹）
+                            # Extract merchant (the first folder)
                             merchant = parts[0] if len(parts) > 0 else "unknown"
                             
-                            # 根据剩余路径长度判断结构
+                            # Determine structure based on remaining path length
                             remaining_parts = parts[1:] if len(parts) > 1 else []
                             
                             if len(remaining_parts) == 1:
                                 # merchant/image.jpg
                                 structure = "A"
                             elif len(remaining_parts) == 2:
-                                # merchant/brand/image.jpg 或 merchant/product/image.jpg
-                                # 这里需要进一步判断是 brand 还是 product
-                                # 暂时标记为 B，在 matcher 中进一步处理
+                                # merchant/brand/image.jpg or merchant/product/image.jpg
+                                # Need to further determine if it's brand or product
+                                # Temporarily mark as B, further processing in matcher
                                 structure = "B"
                             else:
                                 structure = "Unknown"

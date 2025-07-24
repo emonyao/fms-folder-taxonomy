@@ -2,8 +2,8 @@ import re
 
 def extract_color_phrase(filename: str) -> str:
     """
-    从文件名中提取颜色短语（既支持组合形式，也支持单个颜色词）。
-    支持 -, _, /, &, 空格等分隔符。
+    Extract color phrase from filename (supports both combined forms and single color words).
+    Supports -, _, /, &, space and other separators.
     """
     color_keywords = {
         "black", "grey", "gray", "white", "blue", "red", "green", "pink",
@@ -13,7 +13,7 @@ def extract_color_phrase(filename: str) -> str:
     filename = filename.lower()
     filename = re.sub(r'\.(jpg|jpeg|png|webp)$', '', filename)
 
-    # 先尝试提取组合颜色（如 black-grey）
+    # First try to extract combined colors (e.g. black-grey)
     pattern = r"[a-z]+(?:[\s/_\-&\\]+[a-z]+)+"
     candidates = re.findall(pattern, filename)
 
@@ -22,7 +22,7 @@ def extract_color_phrase(filename: str) -> str:
         if all(word in color_keywords for word in words):
             return "_".join(words).strip(" ()")
 
-    # 如果没有组合词，再检查是否有单独颜色词
+    # If no combined word, then check for single color words
     for word in re.split(r"[\s/_\-&\\]+", filename):
         if word in color_keywords:
             return word
